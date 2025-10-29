@@ -1,0 +1,51 @@
+# Example configuration for genetic music evolution
+
+evolution:
+  population_size: 50
+  num_generations: 100
+  crossover_rate: 0.8
+  mutation_rate: 0.1
+  elite_size: 2
+  selection_method: "tournament"  # or "roulette"
+  tournament_size: 3
+
+genome:
+  pattern_depth: 4
+  synth_depth: 4
+  generation_method: "grow"  # or "full"
+
+backend:
+  sc_host: "127.0.0.1"
+  sc_port: 57120
+  tidal_host: "127.0.0.1"
+  tidal_port: 6010
+  orbit: 8
+  recording_duration: 2.0
+  playback_speed: 4.0
+
+fitness:
+  method: "combined"  # "heuristic", "embedding", or "combined"
+  weights:
+    heuristic: 0.6
+    similarity: 0.4
+  
+  # Heuristic weights
+  heuristic_weights:
+    spectral_centroid: 0.3
+    spectral_flatness: 0.2
+    rms_energy: 0.3
+    rhythm: 0.2
+
+output:
+  save_best: true
+  save_interval: 10  # Save best every N generations
+  output_dir: "data/outputs"
+  log_dir: "logs"
+
+# Optional: Reference audio for similarity-based fitness
+reference:
+  enabled: false
+  audio_files:
+    - "data/reference/example1.wav"
+    - "data/reference/example2.wav"
+
