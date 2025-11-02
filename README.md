@@ -15,14 +15,11 @@ The fitness function evaluates rendered sound using perceptual embeddings (CLAP,
 ```
 Python GP Engine
    │
-   ├── Pattern Tree ───────────▶ TidalCycles
-   │   (rhythm, structure)      │
-   │                            ├── interprets pattern
-   │                            └── sends play events (OSC)
-   │
-   └── Synth Tree ─────────────▶ SuperDirt (SuperCollider)
-       (timbre, effects)         │
-                                 └── renders sound → WAV
+   └── Pattern Tree ───────────▶ TidalCycles
+       (rhythm, structure)      │
+                                ├── interprets pattern
+                                ├── sends play events (OSC)
+                                └── renders sound → WAV
                                          │
                                          ▼
                                    Fitness Evaluation
@@ -57,7 +54,7 @@ genetic-coding/
 
 - Python 3.9+
 - SuperCollider with SuperDirt
-- TidalCycles (optional, for interactive testing)
+- TidalCycles
 
 ### Installation
 
@@ -80,28 +77,21 @@ pip install -r requirements.txt
 
 4. Configure SuperCollider:
    - Ensure SuperDirt is installed and running
-   - Reserve orbit `/d8` for the GP system
    - Default port: 57120
 
 ## 🧬 Genome Structure
 
-Each individual genome contains two symbolic trees:
+Each individual genome contains a symbolic tree:
 
 ```python
-Genome(pattern_tree, synth_tree)
+Genome(pattern_tree)
 ```
 
 - **pattern_tree**: Built from Tidal combinators (fast, every, rev, stack, sound, etc.)
-- **synth_tree**: Built from synthesis blocks (SinOsc, LPF, EnvGen, etc.)
 
 ### Example Pattern Tree
 ```
 fast(2, every(3, rev, stack([sound("bd"), sound("sn cp")])))
-```
-
-### Example Synth Tree
-```
-LPF(Mix([SinOsc(440), Saw(330)]), 800)
 ```
 
 ## 🎛️ Communication
@@ -109,7 +99,6 @@ LPF(Mix([SinOsc(440), Saw(330)]), 800)
 | Interface | Purpose | Port |
 |-----------|---------|------|
 | Python ↔ Tidal | Send pattern code | 6010 |
-| Python ↔ SuperDirt | Load SynthDefs, control | 57120 |
 | Tidal ↔ SuperDirt | Playback events | 57120 |
 
 ## 🎚️ Fast Iteration
@@ -139,103 +128,3 @@ population = [Genome.random() for _ in range(50)]
 for generation in range(100):
     evolve(population, fitness_fn=audio_similarity)
 ```
-
-## 🧪 Testing
-
-The project includes comprehensive test suites for all components:
-
-### Quick Start
-
-```bash
-# Run all tests
-python tests/run_all_tests.py
-
-# Run only unit tests (no external dependencies)
-python tests/run_all_tests.py --unit
-
-# Run integration tests (requires SuperCollider + SuperDirt)
-python tests/run_all_tests.py --integration
-```
-
-### Individual Test Suites
-
-```bash
-# Unit tests (pytest)
-pytest tests/test_genome.py -v
-pytest tests/test_codegen.py -v
-
-# Integration tests (manual)
-python tests/test_supercollider.py  # Test SC server connectivity
-python tests/test_superdirt.py      # Test SuperDirt audio playback
-python tests/test_tidalcycles.py    # Test pattern generation
-```
-
-### Prerequisites for Integration Tests
-
-1. **SuperCollider** must be running with **SuperDirt** started
-2. See `scripts/setup_supercollider.md` for detailed setup instructions
-3. Quick SuperDirt startup:
-   ```supercollider
-   (
-   s.waitForBoot {
-       ~dirt = SuperDirt(2, s);
-       ~dirt.loadSoundFiles;
-       ~dirt.start(57120, Array.fill(12, 0));
-       "SuperDirt ready!".postln;
-   };
-   )
-   ```
-
-For detailed testing documentation, see `tests/README.md`.
-
-### Smoke Test: Dual-Layer Communication
-
-Run a minimal end-to-end check that sends a high-level Tidal pattern and then a low-level SuperCollider node:
-
-```bash
-source venv/bin/activate
-python scripts/smoke_comm.py
-```
-
-It will:
-- Generate a random pattern and synth
-- Send the Tidal pattern to orbit `/d8`
-- Spawn a `\default` synth node on scsynth briefly
-- Apply a random mutation and repeat
-
-### Dual-Layer Difference Test
-
-Play the same pattern twice; the second pass adds a low-level overlay so it sounds different:
-
-```bash
-source venv/bin/activate
-python scripts/test_dual_layer.py
-```
-
-### Shared High/Low Interface Test (Bus-Controlled)
-
-Prereq: Load `scripts/sc/gpbus.scd` (your corrected version) in SuperCollider while SuperDirt is running.
-
-Run:
-```bash
-source venv/bin/activate
-python scripts/test_shared_interface.py
-```
-It plays one \gpbus note unmodified, then repeats while sweeping control buses (cutoff/res) from Python.
-
-## 🔭 Future Enhancements
-
-- [ ] Coevolution scheduler for high/low layer alternation
-- [ ] Semantic mutation policies
-- [ ] Hierarchical control mapping
-- [ ] Parallel evaluation with multiple SuperDirt instances
-- [ ] Interactive human-in-the-loop rating
-
-## 📝 License
-
-MIT
-
-## 👥 Contributors
-
-Federico Rubbi
-

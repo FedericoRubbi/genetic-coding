@@ -18,10 +18,10 @@ The genetic music system consists of several interconnected components that work
     │  (genome.py)    │         │  (fitness.py)   │
     │                 │         │                 │
     │ - PatternTree   │         │ - Audio loading │
-    │ - SynthTree     │         │ - Feature extr. │
-    │ - Mutation      │         │ - Embedding sim.│
-    │ - Crossover     │         │ - Heuristics    │
-    └────────┬────────┘         └───────┬─────────┘
+    │ - Mutation      │         │ - Feature extr. │
+    │ - Crossover     │         │ - Embedding sim.│
+    └────────┬────────┘         │ - Heuristics    │
+             │                  └───────┬─────────┘
              │                          │
              ▼                          │
     ┌─────────────────┐                 │
@@ -29,7 +29,6 @@ The genetic music system consists of several interconnected components that work
     │  (codegen.py)   │                 │
     │                 │                 │
     │ - to_tidal()    │                 │
-    │ - to_sc()       │                 │
     └────────┬────────┘                 │
              │                          │
              ▼                          │
@@ -66,11 +65,9 @@ User → Evolution Config → Initialize Population
 ```
 Genome → CodeGen → Executable Code
                    ├─ Tidal Pattern String
-                   └─ SuperCollider SynthDef
 
 Executable Code → Backend → Play & Record
                             ├─ Send to TidalCycles
-                            ├─ Send to SuperDirt
                             └─ Record Audio (WAV)
 
 Audio File → Fitness Module → Fitness Score
@@ -98,7 +95,7 @@ New Offspring → New Population
 
 ### `genome.py`
 - **Purpose**: Define genetic representation
-- **Classes**: `TreeNode`, `PatternTree`, `SynthTree`, `Genome`
+- **Classes**: `TreeNode`, `PatternTree`, `Genome`
 - **Key Methods**:
   - `random()`: Generate random trees
   - `mutate()`: Apply mutation operators
@@ -109,17 +106,14 @@ New Offspring → New Population
 - **Purpose**: Translate symbolic trees to executable code
 - **Functions**:
   - `to_tidal(tree)`: PatternTree → Tidal pattern string
-  - `to_supercollider(tree)`: SynthTree → SC SynthDef
 - **Design**: Recursive tree traversal with code emission
 
 ### `backend.py`
 - **Purpose**: Handle external system communication
 - **Class**: `Backend`
 - **Key Methods**:
-  - `send_synthdef()`: Upload SynthDef to SuperCollider
   - `send_pattern()`: Send pattern to TidalCycles
   - `play_pattern()`: Orchestrate playback and recording
-  - `set_control_bus()`: Low-level parameter control
 - **Communication**: OSC protocol via python-osc
 
 ### `fitness.py`
@@ -158,21 +152,6 @@ Arguments: [pattern_string]
 Example: /d8 "fast 2 $ sound \"bd sn\""
 ```
 
-#### To SuperCollider
-```
-# Load SynthDef
-Address: /d_recv
-Arguments: [synthdef_bytes]
-
-# Set control bus
-Address: /c_set
-Arguments: [bus_number, value]
-
-# Set synth parameter
-Address: /n_set
-Arguments: [node_id, param_name, value]
-```
-
 ### Audio Recording
 
 ```
@@ -200,7 +179,6 @@ selection_method: tournament  # or 'roulette'
 
 ```yaml
 pattern_depth: 4
-synth_depth: 4
 generation_method: grow  # or 'full'
 ```
 
@@ -239,19 +217,6 @@ def to_tidal(tree):
     elif tree.op == 'new_combinator':
         # Generate code
         return f"new_combinator {args}"
-```
-
-### Adding New SC UGens
-
-```python
-# In genome.py
-SynthTree.OSCILLATORS.append('NewOsc')
-
-# In codegen.py
-def tree_to_ugen(node):
-    # ...
-    elif node.op == 'NewOsc':
-        return f"NewOsc.ar({params})"
 ```
 
 ### Adding Custom Fitness Functions

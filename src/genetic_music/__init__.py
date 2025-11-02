@@ -7,10 +7,11 @@ TidalCycles patterns and SuperCollider synths.
 __version__ = "0.1.0"
 
 from .genome import Genome, PatternTree, SynthTree
-from .codegen import to_tidal, to_supercollider
+from .codegen import to_tidal, to_supercollider, extract_synth_params
 from .backend import Backend
 from .fitness import compute_fitness
 from .evolve import evolve_population
+from .shared import GenomePlayer, LayeredSound
 
 __all__ = [
     "Genome",
@@ -18,8 +19,11 @@ __all__ = [
     "SynthTree",
     "to_tidal",
     "to_supercollider",
+    "extract_synth_params",
     "Backend",
     "compute_fitness",
     "evolve_population",
+    "GenomePlayer",
+    "LayeredSound",
 ]
 

@@ -4,6 +4,7 @@ Code generation from tree representations to executable code.
 Converts PatternTree to TidalCycles code and SynthTree to SuperCollider code.
 """
 
+from typing import Dict
 from .genome import PatternTree, SynthTree, TreeNode, TidalGrammar, FunctionType
 
 
@@ -89,65 +90,3 @@ def to_tidal(tree: PatternTree) -> str:
     else:
         children_code = [to_tidal(child) for child in tree.children]
         return f"{tree.op} [{', '.join(children_code)}]"
-
-
-def to_supercollider(tree: SynthTree, synth_name: str = "evolved") -> str:
-    """
-    Convert a SynthTree to SuperCollider SynthDef code.
-    
-    Args:
-        tree: SynthTree to convert
-        synth_name: Name for the SynthDef
-    
-    Returns:
-        SuperCollider SynthDef code as string
-    
-    Example:
-        LPF(SinOsc(440), 800) ->
-        SynthDef(\\evolved, { |freq=440, cutoff=800|
-            Out.ar(0, LPF.ar(SinOsc.ar(freq), cutoff) * 0.2);
-        }).add;
-    """
-    
-    def tree_to_ugen(node: SynthTree) -> str:
-        """Recursively convert tree to UGen expression."""
-        if node.is_leaf():
-            if node.op == 'WhiteNoise':
-                return 'WhiteNoise.ar'
-            else:
-                # Oscillators with frequency
-                return f"{node.op}.ar(freq * {node.value / 440:.2f})"
-        
-        # Process children
-        if node.op in ['LPF', 'HPF', 'BPF', 'RLPF']:
-            input_code = tree_to_ugen(node.children[0])
-            return f"{node.op}.ar({input_code}, {node.value:.2f})"
-        
-        elif node.op == 'Mix':
-            children_code = [tree_to_ugen(child) for child in node.children]
-            return f"Mix.ar([{', '.join(children_code)}])"
-        
-        elif node.op == 'Pan2':
-            child_code = tree_to_ugen(node.children[0])
-            return f"Pan2.ar({child_code}, 0)"
-        
-        elif node.op == 'FreeVerb':
-            child_code = tree_to_ugen(node.children[0])
-            return f"FreeVerb.ar({child_code})"
-        
-        # Default
-        child_code = tree_to_ugen(node.children[0]) if node.children else "0"
-        return f"{node.op}.ar({child_code})"
-    
-    ugen_code = tree_to_ugen(tree)
-    
-    # Build complete SynthDef
-    synthdef = f"""SynthDef(\\{synth_name}, {{ |out=0, freq=440, amp=0.3, gate=1|
-    var sig;
-    sig = {ugen_code};
-    sig = sig * EnvGen.kr(Env.adsr(0.01, 0.3, 0.5, 0.3), gate, doneAction: Done.freeSelf);
-    Out.ar(out, sig * amp);
-}}).add;"""
-    
-    return synthdef
-

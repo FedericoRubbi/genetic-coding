@@ -1,9 +1,7 @@
 """
 Genome representation for musical patterns and synthesis.
 
-This module defines the genetic representation of musical individuals,
-including both high-level pattern trees (TidalCycles) and low-level
-synth trees (SuperCollider).
+This module defines the genetic representation of musical individuals as pattern trees (TidalCycles).
 """
 
 import random
@@ -214,7 +212,7 @@ class TidalGrammar:
 
 
 class TreeNode:
-    """Base class for tree nodes in pattern and synth trees."""
+    """Base class for tree nodes in pattern trees."""
     
     def __init__(self, op: str, children: Optional[List['TreeNode']] = None, value: Any = None):
         """
@@ -333,69 +331,19 @@ class PatternTree(TreeNode):
         return cls(func_sig.name, children, param)
 
 
-class SynthTree(TreeNode):
-    """Tree representation of SuperCollider synths."""
-    
-    # Available SC UGens
-    OSCILLATORS = ['SinOsc', 'Saw', 'Pulse', 'WhiteNoise']
-    FILTERS = ['LPF', 'HPF', 'BPF', 'RLPF']
-    EFFECTS = ['Mix', 'Pan2', 'FreeVerb']
-    
-    @classmethod
-    def random(cls, max_depth: int = 4, method: str = 'grow') -> 'SynthTree':
-        """
-        Generate a random synth tree.
-        
-        Args:
-            max_depth: Maximum tree depth
-            method: 'grow' (variable depth) or 'full' (fixed depth)
-        
-        Returns:
-            Random SynthTree
-        """
-        if max_depth <= 1 or (method == 'grow' and random.random() < 0.3):
-            # Create oscillator (terminal)
-            osc = random.choice(cls.OSCILLATORS)
-            if osc == 'WhiteNoise':
-                return cls(osc, [])
-            else:
-                freq = random.uniform(100, 2000)
-                return cls(osc, [], freq)
-        
-        # Create filter or effect
-        node_type = random.choice(['filter', 'effect'])
-        
-        if node_type == 'filter':
-            op = random.choice(cls.FILTERS)
-            input_signal = cls.random(max_depth - 1, method)
-            cutoff = random.uniform(200, 8000)
-            return cls(op, [input_signal], cutoff)
-        else:
-            op = random.choice(cls.EFFECTS)
-            if op == 'Mix':
-                num_sources = random.randint(2, 3)
-                children = [cls.random(max_depth - 1, method) for _ in range(num_sources)]
-                return cls(op, children)
-            else:
-                child = cls.random(max_depth - 1, method)
-                return cls(op, [child])
-
-
 @dataclass
 class Genome:
     """
-    Complete genome containing both pattern and synth trees.
+    Complete genome containing pattern trees.
     """
     pattern_tree: PatternTree
-    synth_tree: SynthTree
     fitness: float = 0.0
     
     @classmethod
-    def random(cls, pattern_depth: int = 4, synth_depth: int = 4) -> 'Genome':
+    def random(cls, pattern_depth: int = 4) -> 'Genome':
         """Create a random genome."""
         return cls(
-            pattern_tree=PatternTree.random(pattern_depth),
-            synth_tree=SynthTree.random(synth_depth)
+            pattern_tree=PatternTree.random(pattern_depth)
         )
     
     def mutate(self, rate: float = 0.1) -> 'Genome':
@@ -425,21 +373,13 @@ class Genome:
             new_children = list(node.children)
             new_children[idx] = replace_at_path(new_children[idx], path[1:], new_subtree)
             return node.__class__(node.op, new_children, node.value)
-        
-        mutate_pattern = random.random() < 0.5
-        
-        if mutate_pattern:
-            paths = get_paths(self.pattern_tree)
-            target_path = random.choice(paths)
-            new_subtree = PatternTree.random(max_depth=3)
-            new_pattern = replace_at_path(self.pattern_tree, target_path, new_subtree)
-            return Genome(pattern_tree=new_pattern, synth_tree=self.synth_tree, fitness=0.0)
-        else:
-            paths = get_paths(self.synth_tree)
-            target_path = random.choice(paths)
-            new_subtree = SynthTree.random(max_depth=3)
-            new_synth = replace_at_path(self.synth_tree, target_path, new_subtree)
-            return Genome(pattern_tree=self.pattern_tree, synth_tree=new_synth, fitness=0.0)
+
+        # Select a random path in the pattern tree to mutate
+        paths = get_paths(self.pattern_tree)
+        target_path = random.choice(paths)
+        new_subtree = PatternTree.random(max_depth=3)
+        new_pattern = replace_at_path(self.pattern_tree, target_path, new_subtree)
+        return Genome(pattern_tree=new_pattern, fitness=0.0)
     
     def crossover(self, other: 'Genome') -> tuple['Genome', 'Genome']:
         """
@@ -455,5 +395,5 @@ class Genome:
         return self, other
     
     def __repr__(self) -> str:
-        return f"Genome(fitness={self.fitness:.4f}, pattern={self.pattern_tree}, synth={self.synth_tree})"
+        return f"Genome(fitness={self.fitness:.4f}, pattern={self.pattern_tree})"
 
