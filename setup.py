@@ -12,7 +12,7 @@ long_description = readme_file.read_text() if readme_file.exists() else ""
 setup(
     name="genetic-music",
     version="0.1.0",
-    description="Genetic co-evolution of music using TidalCycles and SuperCollider",
+    description="Genetic evolution of music using TidalCycles patterns",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Federico Rubbi",
