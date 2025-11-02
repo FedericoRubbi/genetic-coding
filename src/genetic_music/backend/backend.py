@@ -208,4 +208,3 @@ class Backend:
     def close(self):
         """Clean up resources."""
         self.tidal.close()
-

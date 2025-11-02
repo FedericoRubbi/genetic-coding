@@ -1,11 +1,8 @@
-"""
-Code generation from tree representations to executable code.
+"""Code generation from tree representations to executable TidalCycles code."""
 
-Converts PatternTree to TidalCycles pattern strings.
-"""
-
-from typing import Dict
-from .genome import PatternTree, TreeNode, TidalGrammar, FunctionType
+from ..tree.pattern_tree import PatternTree
+from ..grammar.tidal_grammar import TidalGrammar
+from ..grammar.function_type import FunctionType
 
 
 def to_tidal(tree: PatternTree) -> str:
@@ -62,9 +59,15 @@ def to_tidal(tree: PatternTree) -> str:
         
         elif func_type == FunctionType.N_ARY:
             # N-ary: op [pattern1, pattern2, ...]
+            # Fix: Handle special cases for append and overlay
             children_code = [to_tidal(child) for child in tree.children]
-            patterns = ', '.join(children_code)
-            return f"{tree.op} [{patterns}]"
+            if tree.op in ("append", "overlay"):
+                # These take direct arguments: overlay p1 p2
+                return f"{tree.op} {' '.join(children_code)}"
+            else:
+                # Others use list syntax: stack [p1, p2]
+                patterns = ', '.join(children_code)
+                return f"{tree.op} [{patterns}]"
         
         elif func_type == FunctionType.CONDITIONAL:
             # Conditional: every n (transform) $ pattern
