@@ -1,7 +1,7 @@
 """
-Genome representation for musical patterns and synthesis.
+Genome representation for TidalCycles musical patterns.
 
-This module defines the genetic representation of musical individuals as pattern trees (TidalCycles).
+This module defines the genetic representation of musical individuals as pattern trees.
 """
 
 import random

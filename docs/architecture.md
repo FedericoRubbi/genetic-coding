@@ -2,7 +2,7 @@
 
 ## Overview
 
-The genetic music system consists of several interconnected components that work together to evolve musical patterns and synthesizer designs.
+The genetic music system evolves TidalCycles patterns through genetic programming.
 
 ## Component Diagram
 
@@ -37,8 +37,7 @@ The genetic music system consists of several interconnected components that work
     │  (backend.py)   │
     │                 │
     │ - OSC comms     │
-    │ - Recording     │
-    │ - Playback      │
+    │ - Audio         │
     └────────┬────────┘
              │
              ▼
@@ -46,7 +45,6 @@ The genetic music system consists of several interconnected components that work
     │  External Systems               │
     │  - TidalCycles (port 6010)      │
     │  - SuperDirt (port 57120)       │
-    │  - SuperCollider                │
     └─────────────────────────────────┘
 ```
 
@@ -56,24 +54,18 @@ The genetic music system consists of several interconnected components that work
 
 ```
 User → Evolution Config → Initialize Population
-                          ├─ Random PatternTrees
-                          └─ Random SynthTrees
+                          └─ Random PatternTrees
 ```
 
 ### 2. Evaluation Phase
 
 ```
-Genome → CodeGen → Executable Code
-                   ├─ Tidal Pattern String
-
-Executable Code → Backend → Play & Record
-                            ├─ Send to TidalCycles
-                            └─ Record Audio (WAV)
+PatternTree → CodeGen → Tidal Pattern String → Backend → Play & Record
+                                                        └─ TidalCycles
 
 Audio File → Fitness Module → Fitness Score
              ├─ Load audio
              ├─ Extract features
-             ├─ Compute embedding
              └─ Calculate fitness
 ```
 
@@ -91,174 +83,96 @@ Selected Parents → Genetic Operators
 New Offspring → New Population
 ```
 
-## Module Responsibilities
+## Core Modules
 
 ### `genome.py`
-- **Purpose**: Define genetic representation
-- **Classes**: `TreeNode`, `PatternTree`, `Genome`
-- **Key Methods**:
-  - `random()`: Generate random trees
-  - `mutate()`: Apply mutation operators
-  - `crossover()`: Combine two genomes
-  - Tree traversal and manipulation
+- Pattern tree representation and operations
+- `PatternTree`: TidalCycles pattern structure
+- `TreeNode`: Base tree functionality
+- `Genome`: Wrapper for evolution
 
 ### `codegen.py`
-- **Purpose**: Translate symbolic trees to executable code
-- **Functions**:
-  - `to_tidal(tree)`: PatternTree → Tidal pattern string
-- **Design**: Recursive tree traversal with code emission
+- Converts trees to TidalCycles code
+- `to_tidal()`: Tree → pattern string
+- Recursive code generation
 
 ### `backend.py`
-- **Purpose**: Handle external system communication
-- **Class**: `Backend`
-- **Key Methods**:
-  - `send_pattern()`: Send pattern to TidalCycles
-  - `play_pattern()`: Orchestrate playback and recording
-- **Communication**: OSC protocol via python-osc
+- OSC communication with TidalCycles
+- Pattern sending & playback
+- Audio recording
 
 ### `fitness.py`
-- **Purpose**: Evaluate audio quality
-- **Functions**:
-  - `compute_fitness()`: Main entry point
-  - `heuristic_fitness()`: Rule-based evaluation
-  - `embedding_similarity()`: ML-based similarity
-  - `compute_spectral_features()`: Audio analysis
-- **Methods**:
-  - Heuristic (fast, no ML dependencies)
-  - Embedding-based (CLAP, VGGish)
-  - Combined (weighted mix)
+- Audio quality evaluation
+- Feature extraction
+- ML-based similarity
+- Heuristic measures
 
 ### `evolve.py`
-- **Purpose**: Orchestrate the evolutionary process
-- **Functions**:
-  - `evolve_population()`: Main evolution loop
-  - `tournament_selection()`: Select parents
-  - `roulette_selection()`: Fitness-proportionate selection
-  - `crossover()`: Recombination operator
-  - `mutate()`: Variation operator
-- **Features**:
-  - Elitism
-  - Configurable operators
-  - Progress tracking
+- Evolution orchestration
+- Selection & variation
+- Population management
+- Progress tracking
 
-## Communication Protocols
+## Communication
 
-### OSC Message Format
-
-#### To TidalCycles
+### OSC Protocol
 ```
-Address: /d8
-Arguments: [pattern_string]
-Example: /d8 "fast 2 $ sound \"bd sn\""
-```
-
-### Audio Recording
-
-```
-SC → WAV file → Fitness evaluation
-   │
-   ├─ Sample rate: 44100 Hz
-   ├─ Format: 16-bit PCM
-   └─ Channels: Stereo (2)
+To TidalCycles: 
+  Address: /d8
+  Args: [pattern_string]
+  Example: /d8 "fast 2 $ sound \"bd sn\""
 ```
 
 ## Configuration
 
-### Evolution Parameters
-
 ```yaml
+# Evolution
 population_size: 50
-num_generations: 100
+generations: 100
 crossover_rate: 0.8
 mutation_rate: 0.1
 elite_size: 2
-selection_method: tournament  # or 'roulette'
-```
 
-### Tree Parameters
-
-```yaml
+# Pattern Generation
 pattern_depth: 4
-generation_method: grow  # or 'full'
-```
+method: grow  # or 'full'
 
-### Backend Parameters
-
-```yaml
-sc_host: 127.0.0.1
-sc_port: 57120
-tidal_host: 127.0.0.1
+# Communication
 tidal_port: 6010
 orbit: 8
-recording_duration: 2.0
-playback_speed: 4.0
-```
 
-### Fitness Parameters
-
-```yaml
-method: combined  # 'heuristic', 'embedding', or 'combined'
+# Fitness
+method: combined
 weights:
   heuristic: 0.6
   similarity: 0.4
 ```
 
-## Extension Points
+## Extensions
 
-### Adding New Tidal Combinators
-
+### New Pattern Functions
 ```python
 # In genome.py
-PatternTree.COMBINATORS.append('new_combinator')
+TidalGrammar.FUNCTIONS['new_fn'] = FunctionSignature(...)
 
 # In codegen.py
 def to_tidal(tree):
-    # ...
-    elif tree.op == 'new_combinator':
-        # Generate code
-        return f"new_combinator {args}"
+    if tree.op == 'new_fn':
+        return f"new_fn {args}"
 ```
 
-### Adding Custom Fitness Functions
-
+### Custom Fitness
 ```python
-# In fitness.py
-def custom_fitness(audio: np.ndarray) -> float:
-    # Your logic here
-    return score
+def my_fitness(audio: np.ndarray) -> float:
+    return compute_features(audio)
 
-# In your evolution script
-evolve_population(
-    population,
-    fitness_fn=lambda g: custom_fitness(play_and_record(g))
-)
+evolve_population(population, fitness_fn=my_fitness)
 ```
 
-## Performance Considerations
+## Optimization Tips
 
-### Fitness Evaluation Bottleneck
-- **Issue**: Audio rendering is slow
-- **Solutions**:
-  - Accelerated playback (speed > 1)
-  - Parallel evaluation (multiple SC instances)
-  - Cached embeddings
-  - NRT rendering
-
-### Population Size vs. Quality
-- Larger populations explore better but slower
-- Recommended: 20-50 for interactive, 100-200 for batch
-
-### Tree Depth
-- Deeper trees = more complex music
-- But: harder to train, slower to render
-- Recommended: 3-5 levels
-
-## Future Architecture Changes
-
-### Planned Improvements
-1. **Modular fitness pipeline**: Plug-and-play fitness components
-2. **Distributed evaluation**: Remote workers for fitness
-3. **Checkpointing**: Save/resume evolution
-4. **Interactive GUI**: Real-time visualization and control
-5. **Multi-objective optimization**: Pareto front exploration
+- Use faster playback (speed > 1)
+- Keep patterns simple (3-5 levels)
+- Start with small populations (20-50)
+- Cache fitness evaluations
 

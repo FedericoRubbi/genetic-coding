@@ -1,28 +1,23 @@
 """
-Communication backend for interacting with TidalCycles and SuperCollider.
+Communication backend for interacting with TidalCycles.
 
-Handles OSC messaging, audio recording, and system coordination.
+Handles OSC messaging for pattern playback.
 """
 
 import time
-import threading
 import tempfile
-import subprocess
-import os
 from pathlib import Path
 from typing import Optional
-from pythonosc import udp_client, osc_message_builder, osc_bundle_builder
+from pythonosc import udp_client
 
 
 class Backend:
     """
-    Backend for communicating with TidalCycles and SuperDirt/SuperCollider.
+    Backend for communicating with TidalCycles through SuperDirt.
     """
     
     def __init__(
         self,
-        sc_host: str = "127.0.0.1",
-        sc_port: int = 57110,  # scsynth command port (default)
         tidal_host: str = "127.0.0.1",
         tidal_port: int = 57120,  # SuperDirt listens here for /d1.. /d12
         orbit: int = 8  # Dedicated orbit for GP system
@@ -31,15 +26,11 @@ class Backend:
         Initialize the backend.
         
         Args:
-            sc_host: SuperCollider/SuperDirt host
-            sc_port: SuperCollider/SuperDirt port
             tidal_host: TidalCycles host
-            tidal_port: TidalCycles port
+            tidal_port: TidalCycles port (SuperDirt)
             orbit: Orbit number for GP system (0-11)
         """
-        # scsynth client: use for /s_new, /n_set, /c_set, /n_free, etc.
-        self.sc_client = udp_client.SimpleUDPClient(sc_host, sc_port)
-        # SuperDirt client: use for /d1.. /d12 pattern messages (mini-notation strings)
+        # Client for sending pattern messages to SuperDirt
         self.dirt_client = udp_client.SimpleUDPClient(tidal_host, tidal_port)
         self.orbit = orbit
         self.temp_dir = Path(tempfile.gettempdir()) / "genetic_music"

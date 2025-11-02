@@ -53,7 +53,7 @@ def roulette_selection(population: List[Genome]) -> Genome:
 
 def crossover(parent1: Genome, parent2: Genome) -> Tuple[Genome, Genome]:
     """
-    Perform crossover between two genomes.
+    Perform crossover between two pattern trees.
     
     Args:
         parent1: First parent
@@ -62,15 +62,13 @@ def crossover(parent1: Genome, parent2: Genome) -> Tuple[Genome, Genome]:
     Returns:
         Two offspring genomes
     """
-    # TODO: Implement sophisticated tree crossover
+    # TODO: Implement pattern tree crossover
     # For now, return clones
     offspring1 = Genome(
-        pattern_tree=parent1.pattern_tree,
-        synth_tree=parent2.synth_tree
+        pattern_tree=parent1.pattern_tree
     )
     offspring2 = Genome(
-        pattern_tree=parent2.pattern_tree,
-        synth_tree=parent1.synth_tree
+        pattern_tree=parent2.pattern_tree
     )
     return offspring1, offspring2
 

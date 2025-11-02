@@ -1,11 +1,11 @@
 """
 Code generation from tree representations to executable code.
 
-Converts PatternTree to TidalCycles code and SynthTree to SuperCollider code.
+Converts PatternTree to TidalCycles pattern strings.
 """
 
 from typing import Dict
-from .genome import PatternTree, SynthTree, TreeNode, TidalGrammar, FunctionType
+from .genome import PatternTree, TreeNode, TidalGrammar, FunctionType
 
 
 def to_tidal(tree: PatternTree) -> str:
