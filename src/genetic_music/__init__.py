@@ -11,9 +11,8 @@ with TidalCycles as the backend for pattern generation and playback.
 
 from .genome.genome import Genome
 from .tree.pattern_tree import PatternTree
-from .codegen.tidal_codegen import to_tidal
+from .codegen.to_tidal import to_tidal
 from .backend.backend import Backend
-from .grammar.tidal_grammar import TidalGrammar
 from .genome.population import evolve_population
 
 __all__ = [
@@ -21,7 +20,6 @@ __all__ = [
     'PatternTree',
     'to_tidal',
     'Backend',
-    'TidalGrammar',
     'evolve_population'
 ]
 __version__ = "0.1.0"

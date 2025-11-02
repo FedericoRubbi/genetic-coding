@@ -1,12 +1,13 @@
 """Function type enumerations for TidalCycles functions."""
 
-from enum import Enum
+from enum import Enum, auto
 
 class FunctionType(Enum):
-    """Types of TidalCycles function signatures."""
-    UNARY = "unary"  # (pattern) -> pattern
-    BINARY_NUMERIC = "binary_numeric"  # (number, pattern) -> pattern
-    BINARY_INT = "binary_int"  # (int, pattern) -> pattern
-    N_ARY = "n_ary"  # (pattern, pattern, ...) -> pattern
-    CONDITIONAL = "conditional"  # (int, pattern, pattern) -> pattern
-    PROBABILISTIC = "probabilistic"  # (float[0-1], pattern) -> pattern
+    """Shape of the function signature."""
+    TERMINAL = auto()          # leaf, no children
+    UNARY = auto()             # f(p)
+    BINARY = auto()            # f(x, p)
+    N_ARY = auto()             # f([p1, p2, ...])
+    CONDITIONAL = auto()       # f(n, transform, p)
+    MODIFIER = auto()          # param pattern -> ControlPattern
+    TRANSFORM = auto()         # (Pattern -> Pattern)

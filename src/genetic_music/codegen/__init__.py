@@ -1,3 +1,3 @@
-from .tidal_codegen import to_tidal
+from .to_tidal import to_tidal
 
 __all__ = ['to_tidal']

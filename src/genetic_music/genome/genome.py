@@ -19,7 +19,7 @@ class Genome:
     def random(cls, pattern_depth: int = 4) -> 'Genome':
         """Create a random genome."""
         return cls(
-            pattern_tree=PatternTree.random(pattern_depth)
+            pattern_tree=PatternTree.random(max_depth=pattern_depth)
         )
     
     def mutate(self, rate: float = 0.1) -> 'Genome':

@@ -1,90 +1,26 @@
 """PatternTree implementation for TidalCycles."""
 
+# tidal_gen/tree/pattern_tree.py
 import random
-from typing import List
 from .node import TreeNode
-from ..grammar.tidal_grammar import TidalGrammar
+from ..grammar.registry import FUNCTIONS
+from ..grammar.tidal_type import TidalType, unify
 from ..grammar.function_type import FunctionType
 
 class PatternTree(TreeNode):
-    """
-    Tree representation of TidalCycles patterns.
-    Uses TidalGrammar for function signatures and generation.
-    """
-    
-    # Terminal types
-    TERMINALS = ['sound', 'note', 'silence']
-    
     @classmethod
-    def random(cls, max_depth: int = 4, method: str = 'grow') -> 'PatternTree':
-        """
-        Generate a random pattern tree using the grammar.
-        
-        Args:
-            max_depth: Maximum tree depth
-            method: 'grow' (variable depth) or 'full' (fixed depth)
-        
-        Returns:
-            Random PatternTree
-        """
-        # Terminal probability based on method and depth
-        terminal_prob = 0.3 if method == 'grow' else 0.0
-        
-        if max_depth <= 1 or (method == 'grow' and random.random() < terminal_prob):
-            # Create terminal node
-            return cls._generate_terminal()
-        
-        # Create non-terminal node using grammar
-        return cls._generate_nonterminal(max_depth, method)
-    
+    def random(cls, target_type=TidalType.CONTROL, max_depth=4):
+        if max_depth <= 1:
+            return cls._terminal_of_type(target_type)
+        matching_funcs = [f for f in FUNCTIONS if unify(f.return_type, target_type)]
+        assert len(matching_funcs) > 0, f"No functions found that return type {target_type}"
+        func = random.choice(matching_funcs)
+        children = [cls.random(t, max_depth-1) for t in func.arg_types]
+        return cls(func.name, children, func.generate_param(), func.return_type)
+
     @classmethod
-    def _generate_terminal(cls) -> 'PatternTree':
-        """Generate a terminal (leaf) node."""
-        terminal = random.choice(cls.TERMINALS)
-        
-        if terminal == 'sound':
-            value = random.choice(TidalGrammar.SOUNDS)
-        elif terminal == 'note':
-            value = random.randint(0, 11)  # MIDI note (octave)
-        else:  # silence
-            value = None
-        
-        return cls(terminal, [], value)
-    
-    @classmethod
-    def _generate_nonterminal(cls, max_depth: int, method: str) -> 'PatternTree':
-        """Generate a non-terminal node using the grammar."""
-        # Select a random function signature
-        func_sig = random.choice(TidalGrammar.get_all_functions())
-        
-        # Generate parameter (if needed)
-        param = func_sig.generate_param()
-        
-        # Generate children based on signature type
-        children = []
-        
-        if func_sig.func_type == FunctionType.UNARY:
-            # Single pattern child
-            child = cls.random(max_depth - 1, method)
-            children = [child]
-        
-        elif func_sig.func_type in [FunctionType.BINARY_NUMERIC, 
-                                     FunctionType.BINARY_INT,
-                                     FunctionType.PROBABILISTIC]:
-            # Numeric/int parameter + single pattern child
-            child = cls.random(max_depth - 1, method)
-            children = [child]
-        
-        elif func_sig.func_type == FunctionType.N_ARY:
-            # Multiple pattern children
-            num_children = func_sig.get_num_children()
-            children = [cls.random(max_depth - 1, method) for _ in range(num_children)]
-        
-        elif func_sig.func_type == FunctionType.CONDITIONAL:
-            # Conditional: (n, transform_pattern, base_pattern)
-            # Generate two children - transform and base pattern
-            transform = cls.random(max_depth - 1, 'grow')
-            pattern = cls.random(max_depth - 1, method)
-            children = [transform, pattern]
-        
-        return cls(func_sig.name, children, param)
+    def _terminal_of_type(cls, target_type):
+        matching_functions = [f for f in FUNCTIONS if unify(f.return_type, target_type) and f.kind == FunctionType.TERMINAL]
+        assert len(matching_functions) > 0, f"No terminal functions found that return type {target_type}"
+        f = random.choice(matching_functions)
+        return cls(f.name, [], None, f.return_type)
