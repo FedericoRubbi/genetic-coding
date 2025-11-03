@@ -1,0 +1,81 @@
+// ===========================================
+// common.lark — Core tokens & operators for the
+// typed TidalCycles grammar (Lark)
+// ===========================================
+// This file intentionally defines ONLY terminals and global ignores.
+// All nonterminals (rules) live in sort-specific modules and in control.lark.
+// Keep this module import-only (no other file should depend on it being extended).
+
+// ---------- Booleans ----------
+BOOL: "True" | "False"
+
+// ---------- Strings ----------
+%import common.ESCAPED_STRING
+STRING: ESCAPED_STRING
+
+// ---------- Numbers (signed; INT and DOUBLE are disjoint) ----------
+// DOUBLE requires a decimal point; allows trailing dot and scientific exponent.
+// Examples matched: 0.5, .5, 2., -3.0, +1.2e-3
+DOUBLE: /[+-]?(?:\d+\.\d*|\.\d+)(?:[eE][+-]?\d+)?/
+// INT has no dot/exponent.
+INT: /[+-]?\d+/
+
+// ---------- Common reserved word ----------
+SILENCE: "silence"
+
+// ---------- Operators (declared as explicit tokens) ----------
+// Put longer tokens in families alongside shorter ones to avoid ambiguity.
+// Power (floating)
+OP_POW_BOTH: "|**|"
+OP_POW_RIGHT: "|**"
+OP_POW_LEFT:  "**|"
+
+// Multiplicative
+OP_MUL_BOTH: "|*|"
+OP_MUL_RIGHT: "|*"
+OP_MUL_LEFT:  "*|"
+
+// Division (fractional)
+OP_DIV_BOTH: "|/|"
+OP_DIV_RIGHT: "|/"
+OP_DIV_LEFT:  "/|"
+
+// Modulo (real)
+OP_MOD_BOTH: "|%|"
+OP_MOD_RIGHT: "|%"
+OP_MOD_LEFT:  "%|"
+
+// Additive
+OP_ADD_BOTH: "|+|"
+OP_ADD_RIGHT: "|+"
+OP_ADD_LEFT:  "+|"
+
+// Subtractive
+OP_SUB_BOTH: "|-|"
+OP_SUB_RIGHT: "|-"
+OP_SUB_LEFT:  "-|"
+
+// Union / overlay / append family
+OP_HASH:       "#"
+OP_PIPE_R_BOTH:"|>|"
+OP_PIPE_R:     "|>"
+OP_R_PIPE:     ">|"
+OP_PIPE_L_BOTH:"|<|"
+OP_PIPE_L:     "|<"
+OP_L_PIPE:     "<|"
+OP_MONOID:     "<>"
+
+// Shifts (time)
+OP_SHIFT_L: "<~"
+OP_SHIFT_R: "~>"
+
+// ---------- Comments & whitespace ----------
+// Line comments: // ... (to end of line)
+COMMENT: /\/\/[^\n]*/
+// Block comments: /* ... */ (DOTALL via inline flag)
+BLOCK_COMMENT: /(?s)\/\*.*?\*\//
+
+%import common.WS
+%ignore WS
+%ignore COMMENT
+%ignore BLOCK_COMMENT

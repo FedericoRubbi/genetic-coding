@@ -1,0 +1,111 @@
+// ===========================================
+// pattern_bool.lark — Typed grammar for Pattern Bool
+// ===========================================
+// Imports terminals & operators from common.lark and typed Time/Int/String
+// nonterminals for cross-sort helpers (binary/ascii, timeCat, etc.).
+
+%import .common (BOOL, STRING, SILENCE, INT)
+%import .common (OP_SHIFT_L, OP_SHIFT_R)
+
+%import .pattern_time (pattern_time, transform_time, time_arg)
+%import .pattern_int  (pattern_int, transform_int)
+%import .pattern_string (pattern_string, transform_string)
+
+// ---------- Expression shape ----------
+// Conservative: no infix operators for Pattern Bool.
+// Keep prefix + grouping + constructors.
+?pattern_bool: pattern_bool_term
+
+?pattern_bool_term: prefix_bool pattern_bool_term   // prefix transforms
+                  | "(" pattern_bool ")"        // grouping
+                  | bool_constructor                // literals / lists / families
+
+// ---------- Constructors / literals ----------
+?bool_constructor: bool_literal
+                 | ascii_ctor
+                 | binary_ctor
+                 | binaryn_ctor
+                 | bool_list_to_pat
+                 | bool_timecat
+
+bool_literal: BOOL | SILENCE
+
+// ascii: Pattern String -> Pattern Bool
+ascii_ctor: "ascii" pattern_string
+
+// binary: Pattern Int -> Pattern Bool
+binary_ctor: "binary" pattern_int
+
+// binaryN: Pattern Int -> Pattern Int -> Pattern Bool
+binaryn_ctor: "binaryN" pattern_int pattern_int
+
+// ---------- Lists and list-based combinators ----------
+bool_list: "[" [pattern_bool ("," pattern_bool)*] "]"
+
+bool_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+                 | "stack" | "cat" | "fastcat" | "fastCat"
+                 | "slowcat" | "slowCat" | "randcat") bool_list
+
+// ---------- timeCat/timecat: list of (Time, Pattern Bool) pairs ----------
+bool_time_pair: "(" pattern_time "," pattern_bool ")"
+bool_time_pair_list: bool_time_pair ("," bool_time_pair)*
+bool_timecat: ("timeCat" | "timecat") "[" bool_time_pair_list "]"
+
+// ---------- Prefix transforms (Pattern Bool -> Pattern Bool) ----------
+// Mirrors the generic repertoire; includes Bool-specific 'inv'.
+?prefix_bool: "rev"
+            | "brak"
+            | "palindrome"
+            | "degrade"
+            | "fast" time_arg
+            | "slow" time_arg
+            | "fastGap" time_arg
+            | "density" time_arg
+            | "trunc" time_arg
+            | "densityGap" time_arg
+            | "sparsity" time_arg
+            | "linger" time_arg
+            | "segment" time_arg
+            | "discretise" time_arg
+            | "timeLoop" time_arg
+            | "swing" time_arg
+            | "rotL" time_arg
+            | "rotR" time_arg
+            | "rot" INT
+            | "ply" time_arg
+            | OP_SHIFT_L time_arg
+            | OP_SHIFT_R time_arg
+            | "compress" "(" time_arg "," time_arg ")"
+            | "compressTo" "(" time_arg "," time_arg ")"
+            | "zoom" "(" time_arg "," time_arg ")"
+            | "playFor" time_arg
+            | "inv"                            // f Bool -> f Bool (Pattern instance)
+
+// ---------- Transform values (Pattern Bool -> Pattern Bool) ----------
+?transform_bool: "rev"
+               | "brak"
+               | "palindrome"
+               | "degrade"
+               | "fast" time_arg
+               | "slow" time_arg
+               | "fastGap" time_arg
+               | "density" time_arg
+               | "trunc" time_arg
+               | "densityGap" time_arg
+               | "sparsity" time_arg
+               | "linger" time_arg
+               | "segment" time_arg
+               | "discretise" time_arg
+               | "timeLoop" time_arg
+               | "swing" time_arg
+               | "rotL" time_arg
+               | "rotR" time_arg
+               | "rot" INT
+               | "ply" time_arg
+               | OP_SHIFT_L time_arg
+               | OP_SHIFT_R time_arg
+               | "compress" "(" time_arg "," time_arg ")"
+               | "compressTo" "(" time_arg "," time_arg ")"
+               | "zoom" "(" time_arg "," time_arg ")"
+               | "playFor" time_arg
+               | "inv"

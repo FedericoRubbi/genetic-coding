@@ -1,0 +1,34 @@
+// ===========================================
+// main.lark — Entry module for the typed TidalCycles grammar (Lark)
+// ===========================================
+// This aggregates the per‑sort grammars and sets the default start rule.
+// Use Lark(..., start='start_pint') to parse a different entrypoint.
+// Load with Lark.open("path/to/main.lark", ...) or open_from_package and
+// keep all sibling .lark files in the same package directory.
+
+%import .control        (control_pattern)
+%import .pattern_time   (pattern_time)
+%import .pattern_int    (pattern_int)
+%import .pattern_double (pattern_double)
+%import .pattern_string (pattern_string)
+%import .pattern_note   (pattern_note)
+%import .pattern_bool   (pattern_bool)
+
+// Default entrypoint — ControlPattern expressions
+start: control_pattern
+
+// Alternate entrypoints (pass start='...' to Lark to use these)
+start_control:  control_pattern
+start_ptime:    pattern_time
+start_pint:     pattern_int
+start_pdouble:  pattern_double
+start_pstring:  pattern_string
+start_pnote:    pattern_note
+start_pbool:    pattern_bool
+
+// Global ignores (whitespace & comments) — make them available at the top level
+// so they apply regardless of selective imports in subgrammars.
+%import .common (COMMENT, BLOCK_COMMENT, WS)
+%ignore WS
+%ignore COMMENT
+%ignore BLOCK_COMMENT

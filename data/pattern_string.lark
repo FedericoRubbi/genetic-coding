@@ -1,0 +1,119 @@
+// ===========================================
+// pattern_string.lark — Typed grammar for Pattern String
+// ===========================================
+// Imports terminals & operators from common.lark, plus typed Time/Int/Double
+// nonterminals for cross-sort helpers (samples/select/timeCat).
+
+%import .common (INT, DOUBLE, BOOL, STRING, SILENCE)
+%import .common (OP_SHIFT_L, OP_SHIFT_R)
+
+%import .pattern_time (pattern_time, transform_time, time_arg)
+%import .pattern_int (pattern_int, transform_int)
+%import .pattern_double (pattern_double, transform_double)
+
+// ---------- Expression shape ----------
+// Conservative: no infix operators for Pattern String (to avoid CP-specific merges).
+// Keep prefix + grouping + constructors.
+?pattern_string: pattern_string_term
+
+?pattern_string_term: prefix_string pattern_string_term  // prefix transforms
+                    | "(" pattern_string ")"        // grouping
+                    | string_constructor                // literals / lists / families
+
+// ---------- Constructors / literals ----------
+?string_constructor: string_literal
+                   | sseq_ctor
+                   | sseq_prime_ctor
+                   | sseqs_ctor
+                   | samples_ctor
+                   | string_list_to_pat
+                   | string_timecat
+                   | select_ctor
+
+string_literal: STRING | SILENCE
+
+// sseq: String -> String -> Pattern String
+sseq_ctor: "sseq" STRING STRING
+
+// sseq': [String] -> String -> Pattern String
+sseq_prime_list: "[" [STRING ("," STRING)*] "]"
+sseq_prime_ctor: "sseq'" sseq_prime_list STRING
+
+// sseqs: [(String, String)] -> Pattern String
+pair_str: "(" STRING "," STRING ")"
+pair_str_list: pair_str ("," pair_str)*
+sseqs_ctor: "sseqs" "[" pair_str_list "]"
+
+// samples: Pattern String -> Pattern Int -> Pattern String
+samples_ctor: "samples" pattern_string pattern_int
+
+// ---------- Lists and list-based combinators ----------
+string_list: "[" [pattern_string ("," pattern_string)*] "]"
+
+string_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+                   | "stack" | "cat" | "fastcat" | "fastCat"
+                   | "slowcat" | "slowCat" | "randcat") string_list
+
+// select: Pattern Double -> [Pattern String] -> Pattern String
+select_ctor: "select" pattern_double string_list
+
+// ---------- timeCat/timecat: list of (Time, Pattern String) pairs ----------
+str_time_pair: "(" pattern_time "," pattern_string ")"
+str_time_pair_list: str_time_pair ("," str_time_pair)*
+string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
+
+// ---------- Prefix transforms (Pattern String -> Pattern String) ----------
+?prefix_string: "rev"
+              | "brak"
+              | "palindrome"
+              | "degrade"
+              | "fast" time_arg
+              | "slow" time_arg
+              | "fastGap" time_arg
+              | "density" time_arg
+              | "trunc" time_arg
+              | "densityGap" time_arg
+              | "sparsity" time_arg
+              | "linger" time_arg
+              | "segment" time_arg
+              | "discretise" time_arg
+              | "timeLoop" time_arg
+              | "swing" time_arg
+              | "rotL" time_arg
+              | "rotR" time_arg
+              | "rot" INT
+              | "ply" time_arg
+              | OP_SHIFT_L time_arg
+              | OP_SHIFT_R time_arg
+              | "compress" "(" time_arg "," time_arg ")"
+              | "compressTo" "(" time_arg "," time_arg ")"
+              | "zoom" "(" time_arg "," time_arg ")"
+              | "playFor" time_arg
+
+// ---------- Transform values (Pattern String -> Pattern String) ----------
+?transform_string: "rev"
+                 | "brak"
+                 | "palindrome"
+                 | "degrade"
+                 | "fast" time_arg
+                 | "slow" time_arg
+                 | "fastGap" time_arg
+                 | "density" time_arg
+                 | "trunc" time_arg
+                 | "densityGap" time_arg
+                 | "sparsity" time_arg
+                 | "linger" time_arg
+                 | "segment" time_arg
+                 | "discretise" time_arg
+                 | "timeLoop" time_arg
+                 | "swing" time_arg
+                 | "rotL" time_arg
+                 | "rotR" time_arg
+                 | "rot" INT
+                 | "ply" time_arg
+                 | OP_SHIFT_L time_arg
+                 | OP_SHIFT_R time_arg
+                 | "compress" "(" time_arg "," time_arg ")"
+                 | "compressTo" "(" time_arg "," time_arg ")"
+                 | "zoom" "(" time_arg "," time_arg ")"
+                 | "playFor" time_arg

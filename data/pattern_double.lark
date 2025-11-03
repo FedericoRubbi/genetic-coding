@@ -1,0 +1,132 @@
+// ===========================================
+// pattern_double.lark — Typed grammar for Pattern Double
+// ===========================================
+// Imports terminals & operators from common.lark and typed time
+// arguments from pattern_time.lark.
+// No cross-sort imports beyond Time; ControlPattern features live elsewhere.
+
+%import .common (INT, DOUBLE, BOOL, STRING, SILENCE)
+%import .common (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
+%import .common (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
+%import .common (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
+%import .common (OP_MOD_BOTH, OP_MOD_RIGHT, OP_MOD_LEFT)
+%import .common (OP_ADD_BOTH, OP_ADD_RIGHT, OP_ADD_LEFT)
+%import .common (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
+%import .common (OP_SHIFT_L, OP_SHIFT_R)
+
+%import .pattern_time (pattern_time, transform_time, time_arg)
+
+// ---------- Expression shape ----------
+// Single-tier, left-associative infix operators.
+// For Double we allow +, -, *, /, %, and power |**| family.
+?pattern_double: pattern_double_term (double_infix_op pattern_double_term)*
+
+double_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
+               | OP_MUL_BOTH | OP_MUL_RIGHT | OP_MUL_LEFT
+               | OP_DIV_BOTH | OP_DIV_RIGHT | OP_DIV_LEFT
+               | OP_MOD_BOTH | OP_MOD_RIGHT | OP_MOD_LEFT
+               | OP_ADD_BOTH | OP_ADD_RIGHT | OP_ADD_LEFT
+               | OP_SUB_BOTH | OP_SUB_RIGHT | OP_SUB_LEFT
+
+?pattern_double_term: prefix_double pattern_double_term  // prefix transforms
+                    | "(" pattern_double ")"        // grouping
+                    | double_constructor                // literals / lists / families
+
+// ---------- Constructors / literals ----------
+?double_constructor: double_literal
+                   | cf_ctor
+                   | double_list_to_pat
+                   | double_timecat
+
+// Numeric literals and common Double sources in Tidal
+// (INT is accepted as Double literal, consistent with Parse.hs)
+ double_literal: DOUBLE
+               | INT
+               | SILENCE
+               | "rand"
+               | "perlin"
+               | "sine" | "saw" | "isaw" | "tri" | "square" | "cosine"
+               | "envEq" | "envEqR" | "envL" | "envLR"
+
+ // Control-bus readers that produce Pattern Double
+ cf_ctor: "cF_" STRING
+         | "cF0" STRING
+         | "cF" double_arg STRING
+
+// ---------- Lists and list-based combinators ----------
+ double_list: "[" [pattern_double ("," pattern_double)*] "]"
+
+ double_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+                    | "stack" | "cat" | "fastcat" | "fastCat"
+                    | "slowcat" | "slowCat" | "randcat") double_list
+
+// ---------- timeCat/timecat: list of (Time, Pattern Double) pairs ----------
+ double_time_pair: "(" pattern_time "," pattern_double ")"
+ double_time_pair_list: double_time_pair ("," double_time_pair)*
+ double_timecat: ("timeCat" | "timecat") "[" double_time_pair_list "]"
+
+// ---------- Prefix transforms (Pattern Double -> Pattern Double) ----------
+// Mirrors the generic repertoire and adds Double-specific ones.
+?prefix_double: "rev"
+              | "brak"
+              | "palindrome"
+              | "degrade"
+              | "fast" time_arg
+              | "slow" time_arg
+              | "fastGap" time_arg
+              | "density" time_arg
+              | "trunc" time_arg
+              | "densityGap" time_arg
+              | "sparsity" time_arg
+              | "linger" time_arg
+              | "segment" time_arg
+              | "discretise" time_arg
+              | "timeLoop" time_arg
+              | "swing" time_arg
+              | "rotL" time_arg
+              | "rotR" time_arg
+              | "rot" INT
+              | "ply" time_arg
+              | OP_SHIFT_L time_arg
+              | OP_SHIFT_R time_arg
+              | "compress" "(" time_arg "," time_arg ")"
+              | "compressTo" "(" time_arg "," time_arg ")"
+              | "zoom" "(" time_arg "," time_arg ")"
+              | "playFor" time_arg
+              | "perlin2"                       // Double-only transform
+              | "quantise" double_arg           // RealFrac transform (quantise d)
+              | "rangex" double_arg double_arg  // Floating transform (rangex a b)
+
+// ---------- Transform values (Pattern Double -> Pattern Double) ----------
+?transform_double: "rev"
+                 | "brak"
+                 | "palindrome"
+                 | "degrade"
+                 | "fast" time_arg
+                 | "slow" time_arg
+                 | "fastGap" time_arg
+                 | "density" time_arg
+                 | "trunc" time_arg
+                 | "densityGap" time_arg
+                 | "sparsity" time_arg
+                 | "linger" time_arg
+                 | "segment" time_arg
+                 | "discretise" time_arg
+                 | "timeLoop" time_arg
+                 | "swing" time_arg
+                 | "rotL" time_arg
+                 | "rotR" time_arg
+                 | "rot" INT
+                 | "ply" time_arg
+                 | OP_SHIFT_L time_arg
+                 | OP_SHIFT_R time_arg
+                 | "compress" "(" time_arg "," time_arg ")"
+                 | "compressTo" "(" time_arg "," time_arg ")"
+                 | "zoom" "(" time_arg "," time_arg ")"
+                 | "playFor" time_arg
+                 | "perlin2"
+                 | "quantise" double_arg
+                 | "rangex" double_arg double_arg
+
+// ---------- Local argument helpers ----------
+ double_arg: DOUBLE | INT | "(" pattern_double ")"

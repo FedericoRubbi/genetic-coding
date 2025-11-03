@@ -1,0 +1,196 @@
+// ===========================================
+// control.lark — Typed grammar for ControlPattern
+// ===========================================
+// Imports terminals/operators from common.lark and the typed pattern
+// modules for arguments & higher‑order transforms.
+
+%import .common (INT, DOUBLE, STRING, BOOL, SILENCE)
+%import .common (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
+%import .common (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
+%import .common (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
+%import .common (OP_MOD_BOTH, OP_MOD_RIGHT, OP_MOD_LEFT)
+%import .common (OP_ADD_BOTH, OP_ADD_RIGHT, OP_ADD_LEFT)
+%import .common (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
+%import .common (OP_HASH, OP_PIPE_R_BOTH, OP_PIPE_R, OP_R_PIPE)
+%import .common (OP_PIPE_L_BOTH, OP_PIPE_L, OP_L_PIPE)
+%import .common (OP_MONOID, OP_SHIFT_L, OP_SHIFT_R)
+
+%import .pattern_time   (pattern_time,  transform_time,  time_arg)
+%import .pattern_int    (pattern_int,   transform_int)
+%import .pattern_double (pattern_double,transform_double)
+%import .pattern_string (pattern_string,transform_string)
+%import .pattern_note   (pattern_note,  transform_note)
+%import .pattern_bool   (pattern_bool,  transform_bool)
+
+// ---------- Expression shape ----------
+// Single-tier, left-associative CP infix layer: union/pipe/monoid and numeric merges.
+?control_pattern: control_term (cp_infix_op control_term)*
+
+cp_infix_op: OP_HASH
+           | OP_PIPE_R_BOTH | OP_PIPE_R | OP_R_PIPE
+           | OP_PIPE_L_BOTH | OP_PIPE_L | OP_L_PIPE
+           | OP_MONOID
+           | OP_MUL_BOTH | OP_MUL_RIGHT | OP_MUL_LEFT
+           | OP_DIV_BOTH | OP_DIV_RIGHT | OP_DIV_LEFT
+           | OP_MOD_BOTH | OP_MOD_RIGHT | OP_MOD_LEFT
+           | OP_ADD_BOTH | OP_ADD_RIGHT | OP_ADD_LEFT
+           | OP_SUB_BOTH | OP_SUB_RIGHT | OP_SUB_LEFT
+
+?control_term: prefix_cp control_term                 // prefix transforms on CP
+             | "(" control_pattern ")"            // grouping
+             | cp_constructor                        // CP from typed patterns
+             | cp_binary_named control_term control_term
+             | cp_applied                            // higher-order appliers
+             | cp_jux_family
+             | cp_slice_family
+             | cp_chop_family
+             | cp_mask_family
+             | cp_striate_family
+             | cp_euclid_family
+             | cp_timeops
+             | cp_lists
+
+// ---------- Constructors from typed patterns ----------
+cp_constructor: (string_to_cp   pattern_string)
+              | (double_to_cp   pattern_double)
+              | (note_to_cp     pattern_note)
+              | (int_to_cp      pattern_int)
+
+string_to_cp: "s" | "sound" | "vowel" | "pS"
+
+// A conservative but fairly complete Double→CP menu
+double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
+            | "nudge" | "overgain" | "overshape" | "accelerate"
+            | "bandf" | "bandq" | "begin" | "end" | "loop" | "legato"
+            | "delay" | "delaytime" | "delayfeedback"
+            | "hcutoff" | "hresonance" | "resonance" | "coarse"
+
+note_to_cp:  "up" | "n" | "note" | "pN"
+int_to_cp:   "cut" | "pI"
+
+// ---------- Named binary CP combinators ----------
+cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
+               | "fastAppend" | "fastappend" | "interlace"
+
+// ---------- Higher-order CP appliers ----------
+?cp_applied: "sometimes"   transform_cp control_pattern
+           | "often"       transform_cp control_pattern
+           | "rarely"      transform_cp control_pattern
+           | "almostNever" transform_cp control_pattern
+           | "almostAlways" transform_cp control_pattern
+           | "never"       transform_cp control_pattern
+           | "always"      transform_cp control_pattern
+           | "superimpose" transform_cp control_pattern
+           | "someCycles"  transform_cp control_pattern
+           | "sometimesBy" pattern_double transform_cp control_pattern
+           | "someCyclesBy" pattern_double transform_cp control_pattern
+           | "every"        pattern_int    transform_cp control_pattern
+           | "off"          pattern_time   transform_cp control_pattern
+           | "inside"       pattern_time   transform_cp control_pattern
+           | "outside"      pattern_time   transform_cp control_pattern
+           | "within"       "(" time_arg "," time_arg ")" transform_cp control_pattern
+           | "whenmod"      pattern_time pattern_time transform_cp control_pattern
+           | "plyWith"      pattern_time transform_cp control_pattern
+           | "chunk"        pattern_int  transform_cp control_pattern
+           | "chunk'"       pattern_int  pattern_int transform_cp control_pattern
+
+// ---------- Jux family ----------
+?cp_jux_family: "jux"    transform_cp control_pattern
+              | "juxcut" transform_cp control_pattern
+              | "jux4"   transform_cp control_pattern
+              | "jux'"   transform_cp_list control_pattern
+              | "juxcut'" transform_cp_list control_pattern
+              | "juxBy"  pattern_double transform_cp control_pattern
+
+transform_cp_list: "[" [transform_cp ("," transform_cp)*] "]"
+
+// ---------- Rhythmic slicers ----------
+cp_slice_family: ("slice" | "splice" | "chew" | "bite") pattern_int pattern_int control_pattern
+cp_chop_family:  ("chop" | "gap" | "randslice" | "spin") pattern_int control_pattern
+
+// ---------- Mask / struct ----------
+cp_mask_family: ("mask" | "struct" | "substruct") pattern_bool control_pattern
+
+// ---------- Striate / Euclid ----------
+cp_striate_family: ("striate" pattern_int control_pattern)
+                 | ("striate'" pattern_int pattern_int control_pattern)
+                 | ("striateBy" pattern_int pattern_double control_pattern)
+
+cp_euclid_family: ("euclid" pattern_int pattern_int control_pattern)
+                | ("euclidInv" pattern_int pattern_int control_pattern)
+                | ("euclidFull" pattern_int pattern_int control_pattern control_pattern)
+
+// ---------- Time operations on CP ----------
+cp_timeops: ("hurry" pattern_time control_pattern)
+          | ("loopAt" pattern_time control_pattern)
+          | ("rolledBy" pattern_time control_pattern)
+
+// ---------- Lists of CP and list-based combinators ----------
+cp_list: "[" [control_pattern ("," control_pattern)*] "]"
+cp_lists: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat" | "randcat") cp_list
+
+// ---------- Prefix transforms (ControlPattern -> ControlPattern) ----------
+?prefix_cp: "rev"
+          | "brak"
+          | "palindrome"
+          | "degrade"
+          | "ghost"            // CP-specific
+          | "silent"           // CP-specific
+          | "fast" time_arg
+          | "slow" time_arg
+          | "fastGap" time_arg
+          | "density" time_arg
+          | "trunc" time_arg
+          | "densityGap" time_arg
+          | "sparsity" time_arg
+          | "linger" time_arg
+          | "segment" time_arg
+          | "discretise" time_arg
+          | "timeLoop" time_arg
+          | "swing" time_arg
+          | "rotL" time_arg
+          | "rotR" time_arg
+          | "rot" INT
+          | "ply" time_arg
+          | OP_SHIFT_L time_arg
+          | OP_SHIFT_R time_arg
+          | "compress"   "(" time_arg "," time_arg ")"
+          | "compressTo" "(" time_arg "," time_arg ")"
+          | "zoom"       "(" time_arg "," time_arg ")"
+          | "playFor" time_arg
+          | "iter"    pattern_int
+          | "shuffle" pattern_int
+          | "scramble" pattern_int
+
+// ---------- Transform values (ControlPattern -> ControlPattern) ----------
+?transform_cp: "rev"
+             | "brak"
+             | "palindrome"
+             | "degrade"
+             | "ghost"
+             | "silent"
+             | "fast" time_arg
+             | "slow" time_arg
+             | "fastGap" time_arg
+             | "density" time_arg
+             | "trunc" time_arg
+             | "densityGap" time_arg
+             | "sparsity" time_arg
+             | "linger" time_arg
+             | "segment" time_arg
+             | "discretise" time_arg
+             | "timeLoop" time_arg
+             | "swing" time_arg
+             | "rotL" time_arg
+             | "rotR" time_arg
+             | "rot" INT
+             | "ply" time_arg
+             | OP_SHIFT_L time_arg
+             | OP_SHIFT_R time_arg
+             | "compress"   "(" time_arg "," time_arg ")"
+             | "compressTo" "(" time_arg "," time_arg ")"
+             | "zoom"       "(" time_arg "," time_arg ")"
+             | "playFor" time_arg
+             | "iter"    pattern_int
+             | "shuffle" pattern_int
+             | "scramble" pattern_int

@@ -1,6 +1,9 @@
 # Genetic music package
 -e .
 
+# tidal grammar
+lark
+
 # Core dependencies
 numpy>=1.24.0
 python-osc>=1.8.0
