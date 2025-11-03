@@ -10,56 +10,91 @@ INT: /[0-9]+/
 DOUBLE: /[0-9]+(\.[0-9]+)?/
 STRING: ESCAPED_STRING
 
-// ---------- CONTROL PATTERN ROOT ----------
-control_pattern: pattern_string_to_control_pattern pattern_string
-                | pattern_double_to_control_pattern pattern_double
-                | pattern_note_to_control_pattern pattern_note
-                | pattern_int_to_control_pattern pattern_int
-                | "(" control_pattern operator control_pattern ")"
-                | applied_control
-                | unary_control control_pattern
-                | binary_control control_pattern control_pattern
-                | weave_control
-                | slice_family
-                | chop_gap_spin
-
 // ---------- BASIC OPERATORS ----------
-operator: "#" | "|+|" | "|*|" | "|-|"
+operator: "#" | "|+|" | "|*|" | "|-|"     // keep minimal set (extend later if desired)
+num_operator: "|+|" | "|*|" | "|-|"
+real_operator: "|%|" | "|/|"
+float_operator: "|**|"
 
-// ---------- PATTERN FAMILY ----------
-pattern_string: STRING
-               | pattern_string_to_pattern_string
-               | unary_pattern_transform pattern_string
-               | "(" pattern_string operator pattern_string ")"
+// ---------- CONTROL PATTERN (expression form) ----------
+// Infix chaining of control terms:   term (op term)*
+// This lets:  rev (sound "bd") # gain 0.8
+?control_pattern: control_term (operator control_term)*
 
-pattern_double: DOUBLE
-               | "rand"
-               | "perlin"
-               | unary_pattern_transform pattern_double
-               | "(" pattern_double operator pattern_double ")"
-               | "sine" | "saw" | "isaw" | "tri" | "square" | "cosine"
+?control_term: unary_pattern_transform control_term   // e.g., rev X, fast 2 X, degradeBy 0.4 X
+              | "(" control_pattern ")"               // grouping
+              | control_construct                      // base heads / families
 
-pattern_note: INT | DOUBLE | "rand" | "irand" pattern_int
+// Base constructors and families that *produce* a ControlPattern
+control_construct: pattern_string_to_control_pattern pattern_string
+                 | pattern_double_to_control_pattern pattern_double
+                 | pattern_note_to_control_pattern   pattern_note
+                 | pattern_int_to_control_pattern    pattern_int
+                 | unary_control control_term
+                 | binary_control control_term control_term
+                 | applied_control unary_pattern_transform control_term   // e.g., jux rev X  (simple form)
+                 | weave_control
+                 | slice_family
+                 | chop_gap_spin
 
-pattern_int: INT
-            | "irand" pattern_int
-            | unary_pattern_transform pattern_int
-            | "(" pattern_int operator pattern_int ")"
+// ---------- PATTERN FAMILY (each as expression form too) ----------
+?pattern_string: pattern_string_term (operator pattern_string_term)*
+?pattern_string_term: STRING
+                    | pattern_string_to_pattern_string
+                    | unary_pattern_transform pattern_string_term
+                    | "(" pattern_string ")"
+
+?pattern_double: pattern_double_term ((operator | real_operator | float_operator) pattern_double_term)*
+?pattern_double_term: DOUBLE
+                    | "rand"
+                    | "perlin"
+                    | "sine" | "saw" | "isaw" | "tri" | "square" | "cosine"
+                    | unary_pattern_transform pattern_double_term
+                    | "(" pattern_double ")"
+
+?pattern_note: pattern_note_term (operator pattern_note_term)*
+?pattern_note_term: INT
+                  | DOUBLE
+                  | "rand"
+                  | "irand" pattern_int
+                  | unary_pattern_transform pattern_note_term
+                  | "(" pattern_note ")"
+
+?pattern_int: pattern_int_term ((operator | num_operator) pattern_int_term)*
+?pattern_int_term: INT
+                 | "irand" pattern_int
+                 | unary_pattern_transform pattern_int_term
+                 | "(" pattern_int ")"
 
 // ---------- GENERIC TRANSFORMS ----------
-unary_pattern_transform: "rev" | "brak" | "palindrome" | "fast" pattern_time
-                       | "slow" pattern_time | "degrade" | "degradeBy" pattern_double
-                       | "scramble" | "shuffle" | "iter" pattern_int | "every" pattern_int
-                       | "mask" pattern_bool | "struct" pattern_bool | "linger" pattern_time
-                       | "segment" pattern_time | "discretise" pattern_time
+// Generic (Pattern a -> Pattern a) and friends; we allow them before any pattern/control term.
+unary_pattern_transform: "rev"
+                       | "brak"
+                       | "palindrome"
+                       | "degrade"
+                       | "fast" pattern_time
+                       | "slow" pattern_time
+                       | "degradeBy" pattern_double
+                       | "scramble"
+                       | "shuffle"
+                       | "iter" pattern_int
+                       | "every" pattern_int
+                       | "mask" pattern_bool
+                       | "struct" pattern_bool
+                       | "linger" pattern_time
+                       | "segment" pattern_time
+                       | "discretise" pattern_time
                        | "swing" pattern_time
 
 pattern_bool: BOOL
              | "binary" pattern_int
              | "ascii" pattern_string
              | unary_pattern_transform pattern_bool
+             | "(" pattern_bool ")"
 
-pattern_time: DOUBLE | INT | pattern_double
+pattern_time: DOUBLE
+            | INT
+            | pattern_double
 
 // ---------- CONTROL PARAMETER FUNCTIONS ----------
 pattern_string_to_control_pattern: "s" | "sound" | "vowel" | "pS"
@@ -77,6 +112,9 @@ pair: "(" STRING "," STRING ")"
 // ---------- UNARY / BINARY CONTROL TRANSFORMS ----------
 unary_control: "ghost" | "silent"
 binary_control: "interlace" | "fix" | "unfix" | "contrast"
+
+// "Applied control" that takes a transform and then a control pattern.
+// This is a simplified surface form: jux rev X   /   juxcut rev X   /   jux4 rev X
 applied_control: "jux" | "juxcut" | "jux4"
 
 // ---------- SPECIAL FAMILIES ----------
@@ -85,10 +123,6 @@ control_pattern_list: control_pattern ("," control_pattern)*
 
 slice_family: ("slice" | "splice" | "chew" | "bite") pattern_int pattern_int control_pattern
 chop_gap_spin: ("chop" | "gap" | "randslice" | "spin") pattern_int control_pattern
-
-// ---------- NUMERIC GROUPS ----------
-num_operator: "|+|" | "|*|" | "|-|"
-real_operator: "|%|" | "|/|" | "|**|"
 
 // ---------- TERMINALS ----------
 %import common.ESCAPED_STRING
