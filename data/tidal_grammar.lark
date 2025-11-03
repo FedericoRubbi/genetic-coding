@@ -1,0 +1,96 @@
+// ===========================================
+// TidalCycles Grammar for Lark
+// ===========================================
+
+?start: control_pattern
+
+// ---------- LITERALS ----------
+BOOL: "True" | "False"
+INT: /[0-9]+/
+DOUBLE: /[0-9]+(\.[0-9]+)?/
+STRING: ESCAPED_STRING
+
+// ---------- CONTROL PATTERN ROOT ----------
+control_pattern: pattern_string_to_control_pattern pattern_string
+                | pattern_double_to_control_pattern pattern_double
+                | pattern_note_to_control_pattern pattern_note
+                | pattern_int_to_control_pattern pattern_int
+                | "(" control_pattern operator control_pattern ")"
+                | applied_control
+                | unary_control control_pattern
+                | binary_control control_pattern control_pattern
+                | weave_control
+                | slice_family
+                | chop_gap_spin
+
+// ---------- BASIC OPERATORS ----------
+operator: "#" | "|+|" | "|*|" | "|-|"
+
+// ---------- PATTERN FAMILY ----------
+pattern_string: STRING
+               | pattern_string_to_pattern_string
+               | unary_pattern_transform pattern_string
+               | "(" pattern_string operator pattern_string ")"
+
+pattern_double: DOUBLE
+               | "rand"
+               | "perlin"
+               | unary_pattern_transform pattern_double
+               | "(" pattern_double operator pattern_double ")"
+               | "sine" | "saw" | "isaw" | "tri" | "square" | "cosine"
+
+pattern_note: INT | DOUBLE | "rand" | "irand" pattern_int
+
+pattern_int: INT
+            | "irand" pattern_int
+            | unary_pattern_transform pattern_int
+            | "(" pattern_int operator pattern_int ")"
+
+// ---------- GENERIC TRANSFORMS ----------
+unary_pattern_transform: "rev" | "brak" | "palindrome" | "fast" pattern_time
+                       | "slow" pattern_time | "degrade" | "degradeBy" pattern_double
+                       | "scramble" | "shuffle" | "iter" pattern_int | "every" pattern_int
+                       | "mask" pattern_bool | "struct" pattern_bool | "linger" pattern_time
+                       | "segment" pattern_time | "discretise" pattern_time
+                       | "swing" pattern_time
+
+pattern_bool: BOOL
+             | "binary" pattern_int
+             | "ascii" pattern_string
+             | unary_pattern_transform pattern_bool
+
+pattern_time: DOUBLE | INT | pattern_double
+
+// ---------- CONTROL PARAMETER FUNCTIONS ----------
+pattern_string_to_control_pattern: "s" | "sound" | "vowel" | "pS"
+pattern_double_to_control_pattern: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush" | "nudge"
+pattern_note_to_control_pattern: "n" | "note" | "up" | "pN"
+pattern_int_to_control_pattern: "cut" | "pI"
+
+// ---------- STRING -> PATTERN STRING FAMILY ----------
+pattern_string_to_pattern_string: "sseq" STRING STRING
+                                | "sseqs" "[" pair_list "]"
+
+pair_list: pair ("," pair)*
+pair: "(" STRING "," STRING ")"
+
+// ---------- UNARY / BINARY CONTROL TRANSFORMS ----------
+unary_control: "ghost" | "silent"
+binary_control: "interlace" | "fix" | "unfix" | "contrast"
+applied_control: "jux" | "juxcut" | "jux4"
+
+// ---------- SPECIAL FAMILIES ----------
+weave_control: "weave" pattern_time control_pattern "[" control_pattern_list "]"
+control_pattern_list: control_pattern ("," control_pattern)*
+
+slice_family: ("slice" | "splice" | "chew" | "bite") pattern_int pattern_int control_pattern
+chop_gap_spin: ("chop" | "gap" | "randslice" | "spin") pattern_int control_pattern
+
+// ---------- NUMERIC GROUPS ----------
+num_operator: "|+|" | "|*|" | "|-|"
+real_operator: "|%|" | "|/|" | "|**|"
+
+// ---------- TERMINALS ----------
+%import common.ESCAPED_STRING
+%import common.WS
+%ignore WS
