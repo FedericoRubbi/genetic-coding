@@ -1,0 +1,37 @@
+// ===========================================
+// string_domains.lark — Finite string domains for typed Tidal grammar
+// ===========================================
+// This file defines QUOTED TOKENs for domain‑specific string values.
+// Use these in specialized pattern rules (e.g., pattern_sample_string),
+// then wire CP constructors to those specialized patterns.
+//
+// Notes
+// - Tokens are UPPERCASE by Lark convention.
+// - Keep these sets curated; extend as your setup grows.
+// - These tokens intentionally overlap the generic STRING token from
+//   common.lark. With Earley’s contextual lexing this is fine: in places
+//   where a domain token is expected, it will be chosen over STRING.
+
+// ---- Sample set names (SuperDirt folders) ----
+SAMPLE_STRING: /"(bd|sn|hh|cp|tabla|clap|808bd|808sn|rim|cow|arpy|can|house|jvbass|lt|mt|ht|peri|proc|sid|tink|trump|ul)"/
+
+// ---- "Synth" names (project‑specific sample sets / instruments) ----
+SYNTH_STRING:  /"(superkick|supersquare|supertron|supersaw|superpiano)"/
+
+// ---- Vowels for `vowel` ----
+VOWEL_STRING:  /"(a|e|i|o|u)"/
+
+// ---- Scale names used in `scale` (subset from Sound.Tidal.Scales) ----
+SCALE_STRING:  /"(major|minor|ionian|dorian|phrygian|lydian|mixolydian|aeolian|locrian|chromatic|wholetone|whole|octatonic|harmonicMinor|melodicMinor|pentatonic|minorPentatonic|majorPentatonic|blues|minorBlues)"/
+
+// ---- Common control parameter names (for pF/pI/pN/pS, etc.) ----
+PARAM_STRING:  /"(pan|gain|shape|cutoff|crush|nudge|accelerate|begin|end|loop|legato|delay|delaytime|delayfeedback|hcutoff|hresonance|resonance|coarse|overgain|overshape|speed|bandf|bandq)"/
+
+// ---- Control bus names for cF_/cF0/cF (curated; extend as needed) ----
+BUS_STRING:    /"(gain|speed|pan|shape|cutoff|crush|nudge|accelerate|begin|end|loop|legato|delay|delaytime|delayfeedback|hcutoff|hresonance|resonance|coarse|lfo1|lfo2|env|bus1|bus2)"/
+
+// ---- Delimiters for sseq / sseq' ----
+DELIM_STRING:  /"( |_|-|\/)"/
+
+// ---- ASCII payload for `ascii` (conservative) ----
+ASCII_STRING:  /"[A-Za-z]+"/

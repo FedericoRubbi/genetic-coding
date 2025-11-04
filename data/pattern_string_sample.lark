@@ -1,0 +1,57 @@
+// ===========================================
+// pattern_string_sample.lark — Pattern over SAMPLE_STRING domain
+// ===========================================
+// Specialized string pattern where atoms are SAMPLE_STRING (finite set),
+// reusing the generic string transform repertoire.
+
+%import .common SILENCE
+%import .string_domains (SAMPLE_STRING, DELIM_STRING)
+%import .pattern_time   (pattern_time, time_arg)
+%import .pattern_double (pattern_double)
+
+// Reuse the full prefix transform set from pattern_string
+%import .pattern_string (prefix_string, transform_string)
+
+?transform_sample_string: transform_string
+
+// ---------- Expression shape ----------
+?pattern_sample_string: sample_term
+
+?sample_term: prefix_string pattern_sample_string   // prefix transforms
+            | "(" pattern_sample_string ")"       // grouping
+            | sample_constructor                     // literals / lists / families
+
+// ---------- Constructors / literals ----------
+?sample_constructor: sample_literal
+                   | sample_list_to_pat
+                   | sample_timecat
+                   | sseq_sample_ctor
+                   | sseq_prime_sample_ctor
+                   | sseqs_sample_ctor
+                   | select_sample_ctor
+
+sample_literal: SAMPLE_STRING | SILENCE
+
+// ---------- Lists and list-based combinators ----------
+sample_list: "[" [pattern_sample_string ("," pattern_sample_string)*] "]"
+
+sample_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+                   | "stack" | "cat" | "fastcat" | "fastCat"
+                   | "slowcat" | "slowCat" | "randcat") sample_list
+
+// ---------- timeCat/timecat: list of (Time, Pattern SampleString) pairs ----------
+sample_time_pair: "(" pattern_time "," pattern_sample_string ")"
+sample_time_pair_list: sample_time_pair ("," sample_time_pair)*
+sample_timecat: ("timeCat" | "timecat") "[" sample_time_pair_list "]"
+
+// ---------- sseq variants restricted to domain atoms ----------
+sseq_sample_ctor:         "sseq"  SAMPLE_STRING DELIM_STRING
+sseq_prime_sample_list:   "[" [SAMPLE_STRING ("," SAMPLE_STRING)*] "]"
+sseq_prime_sample_ctor:   "sseq'" sseq_prime_sample_list DELIM_STRING
+
+sseqs_sample_pair:        "(" SAMPLE_STRING "," DELIM_STRING ")"
+sseqs_sample_pair_list:   sseqs_sample_pair ("," sseqs_sample_pair)*
+sseqs_sample_ctor:        "sseqs" "[" sseqs_sample_pair_list "]"
+
+// ---------- select: Pattern Double -> [Pattern SampleString] -> Pattern SampleString ----------
+select_sample_ctor: "select" pattern_double sample_list

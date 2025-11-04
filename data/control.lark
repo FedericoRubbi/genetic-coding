@@ -1,8 +1,11 @@
 // ===========================================
-// control.lark — Typed grammar for ControlPattern
+// control.lark — Typed grammar for ControlPattern (domains merged)
 // ===========================================
-// Imports terminals/operators from common.lark and the typed pattern
-// modules for arguments & higher‑order transforms.
+// Domain-typed routing for String-based CP constructors is integrated here.
+//  • sound/s take SAMPLE domain strings
+//  • vowel takes VOWEL domain strings
+//  • pS/pF/pI/pN take curated PARAM names (for p*) plus typed patterns
+// The rest of the CP grammar remains as in your original file.
 
 %import .common (INT, DOUBLE, STRING, BOOL, SILENCE)
 %import .common (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
@@ -21,6 +24,13 @@
 %import .pattern_string (pattern_string,transform_string)
 %import .pattern_note   (pattern_note,  transform_note)
 %import .pattern_bool   (pattern_bool,  transform_bool)
+
+// --- Domain-specialized string patterns ---
+%import .pattern_string_sample (pattern_sample_string, transform_sample_string)
+%import .pattern_string_vowel  (pattern_vowel_string,  transform_vowel_string)
+%import .string_domains        (PARAM_STRING)
+
+param_name: PARAM_STRING
 
 // ---------- Expression shape ----------
 // Single-tier, left-associative CP infix layer: union/pipe/monoid and numeric merges.
@@ -51,12 +61,21 @@ cp_infix_op: OP_HASH
              | cp_lists
 
 // ---------- Constructors from typed patterns ----------
-cp_constructor: (string_to_cp   pattern_string)
-              | (double_to_cp   pattern_double)
-              | (note_to_cp     pattern_note)
-              | (int_to_cp      pattern_int)
-
-string_to_cp: "s" | "sound" | "vowel" | "pS"
+// NOTE: We inline domain-typed string constructors here instead of using a
+// separate head rule (string_to_cp), so that each head can take its own
+// argument shape without ambiguity.
+cp_constructor: ("s"     pattern_sample_string) // String → CP (domain-typed)
+    | ("sound" pattern_sample_string)
+    | ("vowel" pattern_vowel_string)
+    | ("pS"    param_name pattern_string)
+      // Double/Note/Int → CP (typed)
+    | (double_to_cp   pattern_double)
+    | (note_to_cp     pattern_note)
+    | (int_to_cp      pattern_int)
+      // Named-parameter setters (domain-typed names)
+    | ("pF"    param_name pattern_double)
+    | ("pN"    param_name pattern_note)
+    | ("pI"    param_name pattern_int)
 
 // A conservative but fairly complete Double→CP menu
 double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
@@ -65,8 +84,8 @@ double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
             | "delay" | "delaytime" | "delayfeedback"
             | "hcutoff" | "hresonance" | "resonance" | "coarse"
 
-note_to_cp:  "up" | "n" | "note" | "pN"
-int_to_cp:   "cut" | "pI"
+note_to_cp:  "up" | "n" | "note"
+int_to_cp:   "cut"
 
 // ---------- Named binary CP combinators ----------
 cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"

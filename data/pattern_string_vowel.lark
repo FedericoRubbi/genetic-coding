@@ -1,0 +1,57 @@
+// ===========================================
+// pattern_string_vowel.lark — Pattern over VOWEL_STRING domain
+// ===========================================
+// Specialized string pattern where atoms are VOWEL_STRING (finite set),
+// reusing the generic string transform repertoire.
+
+%import .common (SILENCE)
+%import .string_domains (VOWEL_STRING, DELIM_STRING)
+%import .pattern_time   (pattern_time, time_arg)
+%import .pattern_double (pattern_double)
+
+// Reuse the full prefix transform set from pattern_string
+%import .pattern_string (prefix_string, transform_string)
+
+?transform_vowel_string: transform_string
+
+// ---------- Expression shape ----------
+?pattern_vowel_string: vowel_term
+
+?vowel_term: prefix_string pattern_vowel_string   // prefix transforms
+           | "(" pattern_vowel_string ")"       // grouping
+           | vowel_constructor                     // literals / lists / families
+
+// ---------- Constructors / literals ----------
+?vowel_constructor: vowel_literal
+                  | vowel_list_to_pat
+                  | vowel_timecat
+                  | sseq_vowel_ctor
+                  | sseq_prime_vowel_ctor
+                  | sseqs_vowel_ctor
+                  | select_vowel_ctor
+
+vowel_literal: VOWEL_STRING | SILENCE
+
+// ---------- Lists and list-based combinators ----------
+vowel_list: "[" [pattern_vowel_string ("," pattern_vowel_string)*] "]"
+
+vowel_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+                  | "stack" | "cat" | "fastcat" | "fastCat"
+                  | "slowcat" | "slowCat" | "randcat") vowel_list
+
+// ---------- timeCat/timecat: list of (Time, Pattern VowelString) pairs ----------
+vowel_time_pair: "(" pattern_time "," pattern_vowel_string ")"
+vowel_time_pair_list: vowel_time_pair ("," vowel_time_pair)*
+vowel_timecat: ("timeCat" | "timecat") "[" vowel_time_pair_list "]"
+
+// ---------- sseq variants restricted to domain atoms ----------
+sseq_vowel_ctor:         "sseq"  VOWEL_STRING DELIM_STRING
+sseq_prime_vowel_list:   "[" [VOWEL_STRING ("," VOWEL_STRING)*] "]"
+sseq_prime_vowel_ctor:   "sseq'" sseq_prime_vowel_list DELIM_STRING
+
+sseqs_vowel_pair:        "(" VOWEL_STRING "," DELIM_STRING ")"
+sseqs_vowel_pair_list:   sseqs_vowel_pair ("," sseqs_vowel_pair)*
+sseqs_vowel_ctor:        "sseqs" "[" sseqs_vowel_pair_list "]"
+
+// ---------- select: Pattern Double -> [Pattern VowelString] -> Pattern VowelString ----------
+select_vowel_ctor: "select" pattern_double vowel_list
