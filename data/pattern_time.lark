@@ -8,16 +8,16 @@
 //   - time lists and timeCat/timecat families
 // No %ignore here (handled in common.lark).
 
-%import .common (INT, DOUBLE, BOOL, STRING, SILENCE)
-%import .common (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
-%import .common (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
-%import .common (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
-%import .common (OP_MOD_BOTH, OP_MOD_RIGHT, OP_MOD_LEFT)
-%import .common (OP_ADD_BOTH, OP_ADD_RIGHT, OP_ADD_LEFT)
-%import .common (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
-%import .common (OP_HASH, OP_PIPE_R_BOTH, OP_PIPE_R, OP_R_PIPE)
-%import .common (OP_PIPE_L_BOTH, OP_PIPE_L, OP_L_PIPE)
-%import .common (OP_MONOID, OP_SHIFT_L, OP_SHIFT_R)
+%import .tokens (INT, DOUBLE, BOOL, STRING, SILENCE)
+%import .tokens (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
+%import .tokens (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
+%import .tokens (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
+%import .tokens (OP_MOD_BOTH, OP_MOD_RIGHT, OP_MOD_LEFT)
+%import .tokens (OP_ADD_BOTH, OP_ADD_RIGHT, OP_ADD_LEFT)
+%import .tokens (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
+%import .tokens (OP_HASH, OP_PIPE_R_BOTH, OP_PIPE_R, OP_R_PIPE)
+%import .tokens (OP_PIPE_L_BOTH, OP_PIPE_L, OP_L_PIPE)
+%import .tokens (OP_MONOID, OP_SHIFT_L, OP_SHIFT_R)
 
 // ---------- Expression shape ----------
 // Single-tier, left-associative infix operators (numeric & real ops only for Time)

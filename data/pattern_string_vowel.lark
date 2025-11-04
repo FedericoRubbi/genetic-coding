@@ -4,7 +4,7 @@
 // Specialized string pattern where atoms are VOWEL_STRING (finite set),
 // reusing the generic string transform repertoire.
 
-%import .common (SILENCE)
+%import .tokens (SILENCE)
 %import .string_domains (VOWEL_STRING, DELIM_STRING)
 %import .pattern_time   (pattern_time, time_arg)
 %import .pattern_double (pattern_double)

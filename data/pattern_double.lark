@@ -9,19 +9,18 @@
 // If you prefer, you can merge these changes back into your main
 // pattern_double.lark; kept separate here for clarity.
 
-%import .common (INT, DOUBLE, SILENCE)
-%import .common (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
-%import .common (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
-%import .common (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
-%import .common (OP_MOD_BOTH, OP_MOD_RIGHT, OP_MOD_LEFT)
-%import .common (OP_ADD_BOTH, OP_ADD_RIGHT, OP_ADD_LEFT)
-%import .common (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
-%import .common (OP_SHIFT_L, OP_SHIFT_R)
+%import .tokens (INT, DOUBLE, SILENCE)
+%import .tokens (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
+%import .tokens (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
+%import .tokens (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
+%import .tokens (OP_MOD_BOTH, OP_MOD_RIGHT, OP_MOD_LEFT)
+%import .tokens (OP_ADD_BOTH, OP_ADD_RIGHT, OP_ADD_LEFT)
+%import .tokens (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
+%import .tokens (OP_SHIFT_L, OP_SHIFT_R)
 
 %import .pattern_time   (pattern_time, time_arg)
 %import .pattern_int    (pattern_int)
-%import .pattern_string_scale (pattern_scale_string)
-%import .string_domains (BUS_STRING)
+%import .string_domains (BUS_STRING, SCALE_STRING)
 
 // ---------- Expression shape ----------
 ?pattern_double: pattern_double_term (double_infix_op pattern_double_term)*
@@ -68,7 +67,7 @@ cf_ctor:  "cF_" bus_name
 double_arg: DOUBLE | INT | "(" pattern_double ")"
 
 // ---- STRICT: scale over finite scale-name domain ----
-scale_ctor: "scale" pattern_scale_string pattern_int
+scale_ctor: "scale" SCALE_STRING pattern_int
 
 // ---------- Lists and list-based combinators ----------
 double_list: "[" [pattern_double ("," pattern_double)*] "]"

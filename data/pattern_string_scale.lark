@@ -4,7 +4,7 @@
 // Specialized string pattern where atoms are SCALE_STRING (finite set),
 // reusing the generic string transform repertoire.
 
-%import .common (SILENCE)
+%import .tokens (SILENCE)
 %import .string_domains (SCALE_STRING, DELIM_STRING)
 %import .pattern_time   (pattern_time, time_arg)
 %import .pattern_double (pattern_double)

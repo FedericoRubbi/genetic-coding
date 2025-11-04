@@ -4,8 +4,8 @@
 // Imports terminals & operators from common.lark and typed Time/Int/String
 // nonterminals for cross-sort helpers (binary/ascii, timeCat, etc.).
 
-%import .common (BOOL, STRING, SILENCE, INT)
-%import .common (OP_SHIFT_L, OP_SHIFT_R)
+%import .tokens (BOOL, STRING, SILENCE, INT)
+%import .tokens (OP_SHIFT_L, OP_SHIFT_R)
 
 %import .pattern_time (pattern_time, transform_time, time_arg)
 %import .pattern_int  (pattern_int, transform_int)

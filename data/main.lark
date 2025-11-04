@@ -28,7 +28,7 @@ start_pbool:    pattern_bool
 
 // Global ignores (whitespace & comments) — make them available at the top level
 // so they apply regardless of selective imports in subgrammars.
-%import .common (COMMENT, BLOCK_COMMENT, WS)
+%import .tokens (COMMENT, BLOCK_COMMENT, WS)
 %ignore WS
 %ignore COMMENT
 %ignore BLOCK_COMMENT
