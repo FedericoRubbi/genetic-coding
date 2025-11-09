@@ -46,10 +46,10 @@ cp_infix_op: OP_HASH
            | OP_ADD_BOTH | OP_ADD_RIGHT | OP_ADD_LEFT
            | OP_SUB_BOTH | OP_SUB_RIGHT | OP_SUB_LEFT
 
-?control_term: prefix_cp control_term                 // prefix transforms on CP
-             | "(" control_pattern ")"            // grouping
+?control_term: prefix_cp "(" control_term ")"        // prefix transforms on CP
+             | "(" control_pattern ")"               // grouping
              | cp_constructor                        // CP from typed patterns
-             | cp_binary_named control_term control_term
+             | cp_binary_named "(" control_pattern ")" "(" control_pattern ")"
              | cp_applied                            // higher-order appliers
              | cp_jux_family
              | cp_slice_family
@@ -64,18 +64,18 @@ cp_infix_op: OP_HASH
 // NOTE: We inline domain-typed string constructors here instead of using a
 // separate head rule (string_to_cp), so that each head can take its own
 // argument shape without ambiguity.
-cp_constructor: ("s"     pattern_sample_string) // String → CP (domain-typed)
-    | ("sound" pattern_sample_string)
-    | ("vowel" pattern_vowel_string)
-    | ("pS"    param_name pattern_string)
+cp_constructor: ("s"     "(" pattern_sample_string ")") // String → CP (domain-typed)
+    | ("sound" "(" pattern_sample_string ")")
+    | ("vowel" "(" pattern_vowel_string ")")
+    | ("pS"    param_name "(" pattern_string ")")
       // Double/Note/Int → CP (typed)
-    | (double_to_cp   pattern_double)
-    | (note_to_cp     pattern_note)
-    | (int_to_cp      pattern_int)
+    | (double_to_cp   "(" pattern_double ")")
+    | (note_to_cp     "(" pattern_note ")")
+    | (int_to_cp      "(" pattern_int ")")
       // Named-parameter setters (domain-typed names)
-    | ("pF"    param_name pattern_double)
-    | ("pN"    param_name pattern_note)
-    | ("pI"    param_name pattern_int)
+    | ("pF"    param_name "(" pattern_double ")")
+    | ("pN"    param_name "(" pattern_note ")")
+    | ("pI"    param_name "(" pattern_int ")")
 
 // A conservative but fairly complete Double→CP menu
 double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
@@ -92,57 +92,57 @@ cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
                | "fastAppend" | "fastappend" | "interlace"
 
 // ---------- Higher-order CP appliers ----------
-?cp_applied: "sometimes"   transform_cp control_pattern
-           | "often"       transform_cp control_pattern
-           | "rarely"      transform_cp control_pattern
-           | "almostNever" transform_cp control_pattern
-           | "almostAlways" transform_cp control_pattern
-           | "never"       transform_cp control_pattern
-           | "always"      transform_cp control_pattern
-           | "superimpose" transform_cp control_pattern
-           | "someCycles"  transform_cp control_pattern
-           | "sometimesBy" pattern_double transform_cp control_pattern
-           | "someCyclesBy" pattern_double transform_cp control_pattern
-           | "every"        pattern_int    transform_cp control_pattern
-           | "off"          pattern_time   transform_cp control_pattern
-           | "inside"       pattern_time   transform_cp control_pattern
-           | "outside"      pattern_time   transform_cp control_pattern
-           | "within"       "(" time_arg "," time_arg ")" transform_cp control_pattern
-           | "whenmod"      pattern_time pattern_time transform_cp control_pattern
-           | "plyWith"      pattern_time transform_cp control_pattern
-           | "chunk"        pattern_int  transform_cp control_pattern
-           | "chunk'"       pattern_int  pattern_int transform_cp control_pattern
+?cp_applied: "sometimes"   transform_cp "(" control_pattern ")"
+           | "often"       transform_cp "(" control_pattern ")"
+           | "rarely"      transform_cp "(" control_pattern ")"
+           | "almostNever" transform_cp "(" control_pattern ")"
+           | "almostAlways" transform_cp "(" control_pattern ")"
+           | "never"       transform_cp "(" control_pattern ")"
+           | "always"      transform_cp "(" control_pattern ")"
+           | "superimpose" transform_cp "(" control_pattern ")"
+           | "someCycles"  transform_cp "(" control_pattern ")"
+           | "sometimesBy"  pattern_double transform_cp "(" control_pattern ")"
+           | "someCyclesBy" pattern_double transform_cp "(" control_pattern ")"
+           | "every"         pattern_int    transform_cp "(" control_pattern ")"
+           | "off"           pattern_time   transform_cp "(" control_pattern ")"
+           | "inside"        pattern_time   transform_cp "(" control_pattern ")"
+           | "outside"       pattern_time   transform_cp "(" control_pattern ")"
+           | "within"       "(" time_arg "," time_arg ")" transform_cp "(" control_pattern ")"
+           | "whenmod"       pattern_time pattern_time transform_cp "(" control_pattern ")"
+           | "plyWith"       pattern_time transform_cp "(" control_pattern ")"
+           | "chunk"         pattern_int  transform_cp "(" control_pattern ")"
+           | "chunk'"        pattern_int  pattern_int transform_cp "(" control_pattern ")"
 
 // ---------- Jux family ----------
-?cp_jux_family: "jux"    transform_cp control_pattern
-              | "juxcut" transform_cp control_pattern
-              | "jux4"   transform_cp control_pattern
-              | "jux'"   transform_cp_list control_pattern
-              | "juxcut'" transform_cp_list control_pattern
-              | "juxBy"  pattern_double transform_cp control_pattern
+?cp_jux_family: "jux"     transform_cp "(" control_pattern ")"
+              | "juxcut"  transform_cp "(" control_pattern ")"
+              | "jux4"    transform_cp "(" control_pattern ")"
+              | "jux'"    transform_cp_list "(" control_pattern ")"
+              | "juxcut'" transform_cp_list "(" control_pattern ")"
+              | "juxBy"   pattern_double transform_cp "(" control_pattern ")"
 
 transform_cp_list: "[" [transform_cp ("," transform_cp)*] "]"
 
 // ---------- Rhythmic slicers ----------
-cp_slice_family: ("slice" | "splice" | "chew" | "bite") pattern_int pattern_int control_pattern
-cp_chop_family:  ("chop" | "gap" | "randslice" | "spin") pattern_int control_pattern
+cp_slice_family: ("slice" | "splice" | "chew" | "bite") pattern_int pattern_int "(" control_pattern ")"
+cp_chop_family:  ("chop" | "gap" | "randslice" | "spin") pattern_int "(" control_pattern ")"
 
 // ---------- Mask / struct ----------
-cp_mask_family: ("mask" | "struct" | "substruct") pattern_bool control_pattern
+cp_mask_family: ("mask" | "struct" | "substruct") pattern_bool "(" control_pattern ")"
 
 // ---------- Striate / Euclid ----------
-cp_striate_family: ("striate" pattern_int control_pattern)
-                 | ("striate'" pattern_int pattern_int control_pattern)
-                 | ("striateBy" pattern_int pattern_double control_pattern)
+cp_striate_family: ("striate"   pattern_int "(" control_pattern ")")
+                 | ("striate'"  pattern_int pattern_int "(" control_pattern ")")
+                 | ("striateBy" pattern_int pattern_double "(" control_pattern ")")
 
-cp_euclid_family: ("euclid" pattern_int pattern_int control_pattern)
-                | ("euclidInv" pattern_int pattern_int control_pattern)
-                | ("euclidFull" pattern_int pattern_int control_pattern control_pattern)
+cp_euclid_family: ("euclid"     pattern_int pattern_int "(" control_pattern ")")
+                | ("euclidInv"  pattern_int pattern_int "(" control_pattern ")")
+                | ("euclidFull" pattern_int pattern_int "(" control_pattern ")" "(" control_pattern ")")
 
 // ---------- Time operations on CP ----------
-cp_timeops: ("hurry" pattern_time control_pattern)
-          | ("loopAt" pattern_time control_pattern)
-          | ("rolledBy" pattern_time control_pattern)
+cp_timeops: ("hurry"    pattern_time "(" control_pattern ")")
+          | ("loopAt"   pattern_time "(" control_pattern ")")
+          | ("rolledBy" pattern_time "(" control_pattern ")")
 
 // ---------- Lists of CP and list-based combinators ----------
 cp_list: "[" [control_pattern ("," control_pattern)*] "]"

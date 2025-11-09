@@ -68,3 +68,9 @@ checkpoints/
 *.tmp
 *.bak
 
+# Hypothesis
+.hypothesis/
+
+*.dotclear
+*.wav
+*.png

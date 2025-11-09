@@ -1,7 +1,35 @@
 # pip install "hypothesis[lark]"
-from lark import Lark
+from lark import Lark, Token
 from hypothesis import strategies as st
 from hypothesis.extra.lark import from_lark
+
+import warnings
+from hypothesis.errors import HypothesisWarning, NonInteractiveExampleWarning
+warnings.filterwarnings("ignore", category=NonInteractiveExampleWarning)
+warnings.filterwarnings("ignore", category=HypothesisWarning)
+
+def needs_space(prev: Token, cur: Token) -> bool:
+    # No space at string-literal quotes or around common punctuation
+    if prev.value.endswith('"') or cur.value.startswith('"'):
+        return False
+    if prev.value and prev.value[-1] in '([{|,':
+        return False
+    if cur.value and cur.value[0] in ')]}|,:':
+        return False
+    # Insert when alnum-ish touches alnum-ish (keywords, names, numbers)
+    return (prev.value and prev.value[-1].isalnum()) and (cur.value and cur.value[0].isalnum())
+
+def pretty_with_spaces(s: str) -> str:
+    toks = list(gen.lex(s, dont_ignore=True))  # include ignored tokens positions
+    # Drop ignored tokens entirely; we’ll add our own spaces
+    toks = [t for t in toks if t.type not in getattr(gen, "ignore_tokens", ())]
+    out = []
+    for i, t in enumerate(toks):
+        if i:
+            if needs_space(toks[i-1], t):
+                out.append(" ")
+        out.append(t.value)
+    return "".join(out)
 
 # --- Parsers ---
 # Your real parser (Earley+dynamic) for validation
@@ -57,8 +85,6 @@ base_explicit.update({
     "WS": st.just(" "), # whitespace
 })
 
-breakpoint()
-
 explicit = make_explicit(gen, base_explicit)
 
 # Optional: see what terminals exist (so you can confirm mangled names)
@@ -66,7 +92,7 @@ explicit = make_explicit(gen, base_explicit)
 #              if any(k in n for k in ["SAMPLE_STRING","VOWEL_STRING","SCALE_STRING","PARAM_STRING","BUS_STRING","INT","DOUBLE"])))
 
 # Keep the alphabet readable and also EXCLUDE '/' and '*' so ignored C-style comments won't appear
-alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\""
+alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()"
 alphabet = st.sampled_from(list(alphabet))
 
 # Strategy of strings that the LALR+contextual parser accepts
@@ -91,7 +117,7 @@ def no_empty_cp_list(s: str) -> bool:
 cp_strings = (
     cp_strings
     .filter(lambda s: s.strip())
-    .filter(lambda s: len(s) <= 120)
+    .filter(lambda s: len(s) > 20)
     .filter(parses_ok)
     .filter(no_empty_cp_list)
 )
@@ -100,6 +126,35 @@ cp_strings = (
 cp_trees = cp_strings.map(earley.parse)
 
 # --- Try one example (fine for exploration) ---
-example = cp_strings.example()
-print(example)
-print(earley.parse(example).pretty())
+raw = cp_strings.example()
+pretty = pretty_with_spaces(raw)
+print(pretty)
+print(earley.parse(pretty).pretty())
+
+# def tree_depth(t) -> int:
+#     if not hasattr(t, "children"):  # token
+#         return 1
+#     return 1 + max((tree_depth(c) for c in t.children), default=0)
+
+# min_d, max_d = 6, 16  # tune these
+# cp_trees = cp_strings.map(earley.parse).filter(lambda t: min_d <= tree_depth(t) <= max_d)
+
+# # If you want the *string* back, pretty-print after:
+# cp_nice = cp_trees.map(lambda t: pretty_with_spaces(Reconstructor(earley).reconstruct(t)))
+
+# from hypothesis import settings, Phase, HealthCheck
+
+# # with settings(
+# #     phases=(Phase.generate,),      # disable shrinking (more variety)
+# #     database=None,
+# #     suppress_health_check=[HealthCheck.filter_too_much],
+# # ):
+# example = cp_nice.example()
+# pretty = pretty_with_spaces(example)
+# print(pretty)
+# print(earley.parse(pretty).pretty())
+
+
+# example = cp_strings.example()
+# print(example)
+# print(earley.parse(example).pretty())
