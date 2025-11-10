@@ -18,7 +18,7 @@
 %import .tokens (OP_PIPE_L_BOTH, OP_PIPE_L, OP_L_PIPE)
 %import .tokens (OP_MONOID, OP_SHIFT_L, OP_SHIFT_R)
 
-%import .pattern_time   (pattern_time,  transform_time,  time_arg)
+%import .pattern_time   (pattern_time,  transform_time,  time_arg, time_scalar)
 %import .pattern_int    (pattern_int,   transform_int)
 %import .pattern_double (pattern_double,transform_double)
 %import .pattern_string (pattern_string,transform_string)
@@ -165,10 +165,10 @@ cp_lists: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat" | "ra
           | "linger" time_arg
           | "segment" time_arg
           | "discretise" time_arg
-          | "timeLoop" time_arg
+          | "timeLoop" time_scalar
           | "swing" time_arg
-          | "rotL" time_arg
-          | "rotR" time_arg
+          | "rotL" time_scalar
+          | "rotR" time_scalar
           | "rot" INT
           | "ply" time_arg
           | OP_SHIFT_L time_arg
@@ -198,10 +198,10 @@ cp_lists: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat" | "ra
              | "linger" time_arg
              | "segment" time_arg
              | "discretise" time_arg
-             | "timeLoop" time_arg
+             | "timeLoop" time_scalar
              | "swing" time_arg
-             | "rotL" time_arg
-             | "rotR" time_arg
+             | "rotL" time_scalar
+             | "rotR" time_scalar
              | "rot" INT
              | "ply" time_arg
              | OP_SHIFT_L time_arg

@@ -13,7 +13,7 @@
 %import .tokens (OP_SUB_BOTH, OP_SUB_RIGHT, OP_SUB_LEFT)
 %import .tokens (OP_SHIFT_L, OP_SHIFT_R)
 
-%import .pattern_time   (pattern_time, time_arg)
+%import .pattern_time   (pattern_time, time_arg, time_scalar)
 %import .pattern_int    (pattern_int)
 %import .pattern_double (pattern_double)
 %import .pattern_string_scale (pattern_scale_string)
@@ -85,10 +85,10 @@ select_note_ctor: "select" pattern_double note_list
             | "linger" time_arg
             | "segment" time_arg
             | "discretise" time_arg
-            | "timeLoop" time_arg
+            | "timeLoop" time_scalar
             | "swing" time_arg
-            | "rotL" time_arg
-            | "rotR" time_arg
+            | "rotL" time_scalar
+            | "rotR" time_scalar
             | "rot" INT
             | "ply" time_arg
             | OP_SHIFT_L time_arg
@@ -118,10 +118,10 @@ note_scalar: INT | DOUBLE | "(" pattern_note ")"
                | "linger" time_arg
                | "segment" time_arg
                | "discretise" time_arg
-               | "timeLoop" time_arg
+               | "timeLoop" time_scalar
                | "swing" time_arg
-               | "rotL" time_arg
-               | "rotR" time_arg
+               | "rotL" time_scalar
+               | "rotR" time_scalar
                | "rot" INT
                | "ply" time_arg
                | OP_SHIFT_L time_arg

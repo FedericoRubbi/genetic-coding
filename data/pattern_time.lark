@@ -78,11 +78,11 @@ time_literal: INT
             | "linger" time_arg
             | "segment" time_arg
             | "discretise" time_arg
-            | "timeLoop" time_arg
+            | "timeLoop" time_scalar
             | "swing" time_arg
             | "rot" INT                      // rot k
-            | "rotL" time_arg
-            | "rotR" time_arg
+            | "rotL" time_scalar
+            | "rotR" time_scalar
             | "ply" time_arg
             | OP_SHIFT_L time_arg             // <~ t  (left shift)
             | OP_SHIFT_R time_arg             // ~> t  (right shift)
@@ -109,11 +109,11 @@ time_literal: INT
                | "linger" time_arg
                | "segment" time_arg
                | "discretise" time_arg
-               | "timeLoop" time_arg
+               | "timeLoop" time_scalar
                | "swing" time_arg
                | "rot" INT
-               | "rotL" time_arg
-               | "rotR" time_arg
+               | "rotL" time_scalar
+               | "rotR" time_scalar
                | "ply" time_arg
                | OP_SHIFT_L time_arg
                | OP_SHIFT_R time_arg
@@ -123,6 +123,11 @@ time_literal: INT
                | "playFor" time_arg
 
 // Time-typed argument: either a numeric literal or a grouped time expression.
+// Scalar-only Time (for transforms that require a plain Time, not a Pattern)
+?time_scalar: INT
+            | DOUBLE
+
+// Pattern-time argument (allows modulation)
 ?time_arg: INT
          | DOUBLE
          | "(" pattern_time ")"
