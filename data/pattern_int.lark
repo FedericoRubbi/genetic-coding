@@ -31,7 +31,7 @@ int_infix_op: OP_HASH
             | OP_ADD_BOTH | OP_ADD_RIGHT | OP_ADD_LEFT
             | OP_SUB_BOTH | OP_SUB_RIGHT | OP_SUB_LEFT
 
-?pattern_int_term: prefix_int pattern_int_term   // prefix transforms
+?pattern_int_term: prefix_int "(" pattern_int ")"   // prefix transforms
                  | "(" pattern_int ")"       // grouping
                  | int_constructor              // literals / lists / families
 

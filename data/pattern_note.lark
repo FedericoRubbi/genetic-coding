@@ -28,7 +28,7 @@ note_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
              | OP_ADD_BOTH | OP_ADD_RIGHT | OP_ADD_LEFT
              | OP_SUB_BOTH | OP_SUB_RIGHT | OP_SUB_LEFT
 
-?pattern_note_term: prefix_note pattern_note
+?pattern_note_term: prefix_note "(" pattern_note ")"
                   | "(" pattern_note ")"
                   | note_constructor
 

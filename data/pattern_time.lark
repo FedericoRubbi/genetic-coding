@@ -29,7 +29,7 @@ time_infix_op: OP_MUL_BOTH | OP_MUL_RIGHT | OP_MUL_LEFT
              | OP_SUB_BOTH | OP_SUB_RIGHT | OP_SUB_LEFT
              | OP_MOD_BOTH | OP_MOD_RIGHT | OP_MOD_LEFT
 
-?pattern_time_term: prefix_time pattern_time_term   // prefix transforms
+?pattern_time_term: prefix_time "(" pattern_time ")"   // prefix transforms
                   | "(" pattern_time ")"          // grouping
                   | time_constructor                // literals / lists / families
 

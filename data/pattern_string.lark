@@ -16,7 +16,7 @@
 // Keep prefix + grouping + constructors.
 ?pattern_string: pattern_string_term
 
-?pattern_string_term: prefix_string pattern_string_term  // prefix transforms
+?pattern_string_term: prefix_string "(" pattern_string ")"  // prefix transforms
                     | "(" pattern_string ")"        // grouping
                     | string_constructor                // literals / lists / families
 

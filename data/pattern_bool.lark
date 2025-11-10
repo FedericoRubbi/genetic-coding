@@ -16,7 +16,7 @@
 // Keep prefix + grouping + constructors.
 ?pattern_bool: pattern_bool_term
 
-?pattern_bool_term: prefix_bool pattern_bool_term   // prefix transforms
+?pattern_bool_term: prefix_bool "(" pattern_bool ")"   // prefix transforms
                   | "(" pattern_bool ")"        // grouping
                   | bool_constructor                // literals / lists / families
 
