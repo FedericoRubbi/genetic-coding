@@ -1,3 +1,7 @@
-from .to_tidal import to_tidal
+"""Tidal code generation utilities."""
 
-__all__ = ['to_tidal']
+from .tidal_codegen import to_tidal
+
+__all__ = ["to_tidal"]
+
+

@@ -33,10 +33,18 @@ def pretty_with_spaces(s: str) -> str:
 
 # --- Parsers ---
 # Your real parser (Earley+dynamic) for validation
-earley = Lark.open("data/main.lark", start="control_pattern")  # default earley/dynamic
+earley = Lark.open(
+    "src/genetic_music/grammar/main.lark",
+    start="control_pattern",
+)  # default earley/dynamic
 
 # A generation-only parser to avoid dynamic-lexer edge cases
-gen = Lark.open("data/main.lark", start="control_pattern", parser="lalr", lexer="contextual")
+gen = Lark.open(
+    "src/genetic_music/grammar/main.lark",
+    start="control_pattern",
+    parser="lalr",
+    lexer="contextual",
+)
 
 # --- Helper: auto-map base terminal names -> mangled names present in the compiled grammar
 def make_explicit(gen_lark, base_to_strategy):

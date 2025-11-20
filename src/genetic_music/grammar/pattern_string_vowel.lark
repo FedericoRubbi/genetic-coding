@@ -17,9 +17,22 @@
 // ---------- Expression shape ----------
 ?pattern_vowel_string: vowel_term
 
-?vowel_term: prefix_string pattern_vowel_string   // prefix transforms
-           | "(" pattern_vowel_string ")"       // grouping
-           | vowel_constructor                     // literals / lists / families
+// IMPORTANT: we require parentheses after a prefix transform so that
+// the generated surface syntax respects Haskell’s left‑associative
+// application. Without them, strings like
+//
+//   brak trunc(density ...)(rand)("i")
+//
+// are parsed by Haskell as `brak trunc (density ...) ("i")`, which
+// misapplies `brak` and `trunc` and leads to GHC type errors.
+// With the shape below, we instead generate
+//
+//   brak (trunc (density ...)(rand) ("i"))
+//
+// which matches the intended Tidal types.
+?vowel_term: prefix_string "(" pattern_vowel_string ")"   // prefix transforms
+           | "(" pattern_vowel_string ")"                 // grouping
+           | vowel_constructor                            // literals / lists / families
 
 // ---------- Constructors / literals ----------
 ?vowel_constructor: vowel_literal

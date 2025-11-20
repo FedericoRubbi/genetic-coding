@@ -10,6 +10,8 @@ from pathlib import Path
 from genetic_music.genome.genome import Genome
 from genetic_music.genome.population import evolve_population
 from genetic_music.generator.generation import generate_expressions
+from genetic_music.backend.backend import Backend
+from genetic_music.codegen.tidal_codegen import to_tidal
 
 
 def structural_fitness(genome: Genome) -> float:
@@ -40,13 +42,30 @@ def structural_fitness(genome: Genome) -> float:
 
 def main():
     # -------------------------------------------------------------------------
-    # 1. Output directory (for future extensions, no audio in this dummy run)
+    # 1. Initialize backend for audio playback and recording
+    # -------------------------------------------------------------------------
+    print(f"Current working directory: {Path.cwd()}")
+    BOOT_TIDAL = os.path.expanduser(
+        "/Users/federicorubbi/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
+    )
+    if not os.path.exists(BOOT_TIDAL):
+        print("Please set the correct path to your BootTidal.hs file!")
+        return
+
+    backend = Backend(
+        boot_tidal_path=BOOT_TIDAL,
+        orbit=8,    # SuperDirt orbit to render on
+        stream=12   # dedicated Tidal stream (d12)
+    )
+
+    # -------------------------------------------------------------------------
+    # 2. Output directory
     # -------------------------------------------------------------------------
     output_dir = Path("data/outputs/minimal_evolution")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # -------------------------------------------------------------------------
-    # 2. Initial population (PatternTree-based genomes)
+    # 3. Initial population (PatternTree-based genomes)
     # -------------------------------------------------------------------------
     pop_size = 10
     expressions = generate_expressions(pop_size)
@@ -69,7 +88,7 @@ def main():
     )
 
     # -------------------------------------------------------------------------
-    # 5. Show best pattern (no playback in this dummy run)
+    # 5. Show best pattern and save a WAV file
     # -------------------------------------------------------------------------
     best = max(evolved, key=lambda g: g.fitness)
 
@@ -77,6 +96,27 @@ def main():
     print("=" * 50)
     print(f"Fitness: {best.fitness:.4f}")
     print(f"Tree: {best.pattern_tree}")
+    pattern = to_tidal(best.pattern_tree)
+    print(f"Pattern: {pattern}")
+
+    output_path = output_dir / "best_pattern.wav"
+    abs_output_path = output_path.resolve()
+    print(f"\nRecording best pattern to: {abs_output_path}")
+
+    recorded_path = backend.play_tidal_code(
+        rhs_pattern_expr=pattern,
+        duration=8.0,
+        output_path=output_path,
+        playback_after=False,
+    )
+
+    recorded_path = recorded_path.resolve()
+    if recorded_path.exists():
+        print(f"[minimal_evolution_save_wav] Backend reported output at path: {recorded_path}")
+    else:
+        print(f"[minimal_evolution_save_wav] Backend reported no output at path: {recorded_path}")
+
+    backend.close()
 
 
 if __name__ == "__main__":

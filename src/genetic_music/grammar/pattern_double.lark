@@ -60,10 +60,20 @@ waves_ctor: ("sine" | "saw" | "isaw" | "tri" | "square" | "cosine")
 
 // ---- STRICT: control-bus name domain ----
 bus_name: BUS_STRING
+
+// NOTE: `cF` in Tidal takes a *scalar* Double as its first argument,
+// not a full `Pattern Double`. Allowing a full `pattern_double` here
+// leads to ill‑typed constructs like `cF (rand) "gain"`, which GHC
+// rejects with “expected Double, got Pattern a”.
+// We therefore restrict the first argument to numeric literals only.
+cf_scalar: DOUBLE | INT
+
 cf_ctor:  "cF_" bus_name
         | "cF0" bus_name
-        | "cF"  double_arg bus_name
+        | "cF"  cf_scalar bus_name
 
+// General “pattern or literal” Double argument, used by transforms
+// like `quantise` and `rangex` that *do* accept full patterns.
 double_arg: DOUBLE | INT | "(" pattern_double ")"
 
 // ---- STRICT: scale over finite scale-name domain ----

@@ -3,14 +3,12 @@
 # tidal_gen/tree/node.py
 from dataclasses import dataclass, field
 from typing import Any, List
-from ..grammar.tidal_type import TidalType
 
 @dataclass
 class TreeNode:
     op: str
     children: List['TreeNode'] = field(default_factory=list)
     value: Any = None
-    return_type: TidalType = TidalType.CONTROL
 
     def is_leaf(self) -> bool:
         return not self.children

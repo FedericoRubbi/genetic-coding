@@ -239,7 +239,11 @@ def write_dot(graph: Dict[pathlib.Path, Set[pathlib.Path]], out_path: pathlib.Pa
 
 def main():
     ap = argparse.ArgumentParser(description="Check Lark import DAG and rename cycles")
-    ap.add_argument('--root', default='data', help='Root folder for grammar files')
+    ap.add_argument(
+        '--root',
+        default='src/genetic_music/grammar',
+        help='Root folder for grammar files',
+    )
     ap.add_argument('--entry', default=None, help='Entry grammar file (optional)')
     ap.add_argument('--dot', default=None, help='Write Graphviz .dot to this path')
     args = ap.parse_args()

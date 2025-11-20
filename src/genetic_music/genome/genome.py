@@ -1,75 +1,50 @@
 """Genome representation for TidalCycles musical patterns."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-import random
-from typing import List, Optional
-from ..tree.pattern_tree import PatternTree
-from ..tree.node import TreeNode
+from typing import Tuple
+
+from genetic_music.tree.pattern_tree import PatternTree
 
 
 @dataclass
 class Genome:
-    """
-    Complete genome containing pattern trees.
-    """
+    """Complete genome containing a pattern tree and its fitness score."""
+
     pattern_tree: PatternTree
     fitness: float = 0.0
-    
-    @classmethod
-    def random(cls, pattern_depth: int = 4) -> 'Genome':
-        """Create a random genome."""
-        return cls(
-            pattern_tree=PatternTree.random(max_depth=pattern_depth)
-        )
-    
-    def mutate(self, rate: float = 0.1) -> 'Genome':
-        """
-        Mutate the genome.
-        
-        Args:
-            rate: Mutation probability
-        
-        Returns:
-            Mutated genome (new instance)
-        """
-        if random.random() > rate:
-            return self
-        
-        def get_paths(node: TreeNode, current_path: Optional[List[int]] = None) -> List[List[int]]:
-            path = current_path or []
-            paths = [path]
-            for idx, child in enumerate(node.children):
-                paths.extend(get_paths(child, path + [idx]))
-            return paths
-        
-        def replace_at_path(node: TreeNode, path: List[int], new_subtree: TreeNode) -> TreeNode:
-            if not path:
-                return new_subtree
-            idx = path[0]
-            new_children = list(node.children)
-            new_children[idx] = replace_at_path(new_children[idx], path[1:], new_subtree)
-            return node.__class__(node.op, new_children, node.value)
 
-        # Select a random path in the pattern tree to mutate
-        paths = get_paths(self.pattern_tree)
-        target_path = random.choice(paths)
-        new_subtree = PatternTree.random(max_depth=3)
-        new_pattern = replace_at_path(self.pattern_tree, target_path, new_subtree)
-        return Genome(pattern_tree=new_pattern, fitness=0.0)
-    
-    def crossover(self, other: 'Genome') -> tuple['Genome', 'Genome']:
+    @classmethod
+    def random(cls, pattern_tree: PatternTree) -> "Genome":
+        """Create a genome from a randomly generated :class:`PatternTree`.
+
+        Random pattern generation is handled elsewhere (e.g. via the
+        ``genetic_music.generator.generation`` utilities), so this method
+        simply wraps an already-generated tree.
         """
-        Perform crossover with another genome.
-        
-        Args:
-            other: Parent genome
-        
-        Returns:
-            Two offspring genomes
+        return cls(pattern_tree=pattern_tree, fitness=0.0)
+
+    def mutate(self, rate: float = 0.1) -> "Genome":
+        """Return a (currently unmutated) copy of this genome.
+
+        Mutation of the underlying tree structure is left for future work;
+        for now we return a shallow copy so the evolutionary loop can run.
         """
-        # TODO: Implement tree crossover (subtree exchange)
-        # For now, just return copies of parents
-        return self, other
-    
+        # Shallow copy is sufficient while we have no in-place mutation.
+        return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)
+
+    def crossover(self, other: "Genome") -> Tuple["Genome", "Genome"]:
+        """Perform crossover with another genome.
+
+        Tree crossover (subtree exchange) is not yet implemented; this method
+        currently returns unchanged copies of the parents to keep the API
+        stable for the evolutionary loop.
+        """
+        return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness), Genome(
+            pattern_tree=other.pattern_tree,
+            fitness=other.fitness,
+        )
+
     def __repr__(self) -> str:
         return f"Genome(fitness={self.fitness:.4f}, pattern={self.pattern_tree})"

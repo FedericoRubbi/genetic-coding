@@ -153,6 +153,11 @@ class Backend:
             output_path = Path(output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Always send an absolute, user-expanded path to SuperCollider so that
+        # the recording ends up exactly where we expect it, regardless of the
+        # SC server's working directory.
+        output_path = output_path.expanduser().resolve()
+
         # 1) Start SC recording (pass duration)
         self._sc_record_start(output_path, duration)
         time.sleep(0.25)
