@@ -39,12 +39,12 @@ binary_ctor: "binary" pattern_int
 // binaryN: Pattern Int -> Pattern Int -> Pattern Bool
 binaryn_ctor: "binaryN" pattern_int pattern_int
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 bool_list: "[" [pattern_bool ("," pattern_bool)*] "]"
 
-bool_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+bool_list_to_pat: ("listToPat"
                  | "stack" | "cat" | "fastcat" | "fastCat"
-                 | "slowcat" | "slowCat" | "randcat") bool_list
+                 | "slowcat" | "slowCat") bool_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Bool) pairs ----------
 bool_time_pair: "(" pattern_time "," pattern_bool ")"
@@ -56,7 +56,6 @@ bool_timecat: ("timeCat" | "timecat") "[" bool_time_pair_list "]"
 ?prefix_bool: "rev"
             | "brak"
             | "palindrome"
-            | "degrade"
             | "fast" time_arg
             | "slow" time_arg
             | "fastGap" time_arg
@@ -85,7 +84,6 @@ bool_timecat: ("timeCat" | "timecat") "[" bool_time_pair_list "]"
 ?transform_bool: "rev"
                | "brak"
                | "palindrome"
-               | "degrade"
                | "fast" time_arg
                | "slow" time_arg
                | "fastGap" time_arg

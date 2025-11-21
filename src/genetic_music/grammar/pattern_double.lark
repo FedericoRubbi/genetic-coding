@@ -38,8 +38,6 @@ double_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 
 // ---------- Constructors / literals ----------
 ?double_constructor: double_literal
-                   | rand_ctor
-                   | perlin_ctor
                    | waves_ctor
                    | env_ctor
                    | cf_ctor           // cF_* bus readers
@@ -49,10 +47,6 @@ double_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 
 // Numeric literals (allow INT to coerce to Double surface)
 double_literal: DOUBLE | INT | SILENCE
-
-rand_ctor:   "rand"
-perlin_ctor: "perlin"
-
 // Common oscillators
 env_ctor:   ("envEq" | "envEqR" | "envL" | "envLR")
 
@@ -79,12 +73,12 @@ double_arg: DOUBLE | INT | "(" pattern_double ")"
 // ---- STRICT: scale over finite scale-name domain ----
 scale_ctor: "scale" SCALE_STRING pattern_int
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 double_list: "[" [pattern_double ("," pattern_double)*] "]"
 
-double_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+double_list_to_pat: ("listToPat"
                    | "stack" | "cat" | "fastcat" | "fastCat"
-                   | "slowcat" | "slowCat" | "randcat") double_list
+                   | "slowcat" | "slowCat") double_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Double) pairs ----------
 double_time_pair: "(" pattern_time "," pattern_double ")"
@@ -95,7 +89,6 @@ double_timecat: ("timeCat" | "timecat") "[" double_time_pair_list "]"
 ?prefix_double: "rev"
               | "brak"
               | "palindrome"
-              | "degrade"
               | "fast" time_arg
               | "slow" time_arg
               | "fastGap" time_arg
@@ -118,18 +111,21 @@ double_timecat: ("timeCat" | "timecat") "[" double_time_pair_list "]"
               | "compressTo" "(" time_arg "," time_arg ")"
               | "zoom"       "(" time_arg "," time_arg ")"
               | "playFor" time_arg
-              | "perlin2"                   // Double-specific source
               | quantise_ctor               // RealFrac transform
               | rangex_ctor                 // Floating transform
 
-quantise_ctor: "quantise" double_arg
+// Tidal's `quantise` takes a scalar Double, not a Pattern Double.
+// Correct type: Double -> Pattern Double -> Pattern Double
+quantise_ctor: "quantise" cf_scalar double_arg
+
+// rangex takes two Double arguments (min/max) which CAN be patterns
+// (Pattern Double -> Pattern Double -> Pattern Double -> Pattern Double)
 rangex_ctor:   "rangex"   double_arg double_arg
 
 // ---------- Transform values (Pattern Double -> Pattern Double) ----------
 ?transform_double: "rev"
                  | "brak"
                  | "palindrome"
-                 | "degrade"
                  | "fast" time_arg
                  | "slow" time_arg
                  | "fastGap" time_arg
@@ -152,6 +148,5 @@ rangex_ctor:   "rangex"   double_arg double_arg
                  | "compressTo" "(" time_arg "," time_arg ")"
                  | "zoom"       "(" time_arg "," time_arg ")"
                  | "playFor" time_arg
-                 | "perlin2"
                  | quantise_ctor
                  | rangex_ctor

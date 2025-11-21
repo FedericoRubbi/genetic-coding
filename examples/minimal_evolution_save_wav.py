@@ -76,6 +76,7 @@ def main():
     for i, genome in enumerate(population):
         print(f"\nIndividual {i}:")
         print(f"Tree: {genome.pattern_tree}")
+        print(f"Tidal code: {to_tidal(genome.pattern_tree)}")
 
     # -------------------------------------------------------------------------
     # 4. Evolution

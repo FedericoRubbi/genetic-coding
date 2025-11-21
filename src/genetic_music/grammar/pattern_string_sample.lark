@@ -2,7 +2,9 @@
 // pattern_string_sample.lark — Pattern over SAMPLE_STRING domain
 // ===========================================
 // Specialized string pattern where atoms are SAMPLE_STRING (finite set),
-// reusing the generic string transform repertoire.
+// reusing the generic string transform repertoire. These patterns are intended
+// to represent *audio-bearing* sample names, so SAMPLE_STRING atoms are
+// preserved and SILENCE is available only as an explicit rest.
 
 %import .tokens (SILENCE)
 %import .string_domains (SAMPLE_STRING, DELIM_STRING)
@@ -17,7 +19,7 @@
 // ---------- Expression shape ----------
 ?pattern_sample_string: sample_term
 
-?sample_term: prefix_string pattern_sample_string   // prefix transforms
+?sample_term: prefix_string "(" pattern_sample_string ")"   // prefix transforms
             | "(" pattern_sample_string ")"       // grouping
             | sample_constructor                     // literals / lists / families
 
@@ -32,12 +34,12 @@
 
 sample_literal: SAMPLE_STRING | SILENCE
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 sample_list: "[" [pattern_sample_string ("," pattern_sample_string)*] "]"
 
-sample_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+sample_list_to_pat: ("listToPat"
                    | "stack" | "cat" | "fastcat" | "fastCat"
-                   | "slowcat" | "slowCat" | "randcat") sample_list
+                   | "slowcat" | "slowCat") sample_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern SampleString) pairs ----------
 sample_time_pair: "(" pattern_time "," pattern_sample_string ")"

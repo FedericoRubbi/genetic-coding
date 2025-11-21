@@ -45,12 +45,12 @@
 
 vowel_literal: VOWEL_STRING | SILENCE
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 vowel_list: "[" [pattern_vowel_string ("," pattern_vowel_string)*] "]"
 
-vowel_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+vowel_list_to_pat: ("listToPat"
                   | "stack" | "cat" | "fastcat" | "fastCat"
-                  | "slowcat" | "slowCat" | "randcat") vowel_list
+                  | "slowcat" | "slowCat") vowel_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern VowelString) pairs ----------
 vowel_time_pair: "(" pattern_time "," pattern_vowel_string ")"

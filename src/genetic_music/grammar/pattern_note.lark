@@ -2,7 +2,9 @@
 // pattern_note.lark — Typed grammar for Pattern Note (STRICT scale)
 // ===========================================
 // Adds a strict `scale` that consumes SCALE_STRING (finite domain) + Pattern Int.
-// Keeps numeric/lists/timecat/select and the usual prefix transforms.
+// Keeps numeric/lists/timecat/select and the usual prefix transforms.  These
+// note patterns are treated as *potentially audio-bearing* when lifted into
+// ControlPatterns via the note_to_cp heads in ``control.lark``.
 
 %import .tokens (INT, DOUBLE, SILENCE)
 %import .tokens (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
@@ -34,9 +36,6 @@ note_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 
 // ---------- Constructors / literals ----------
 ?note_constructor: note_literal
-                 | rand_ctor
-                 | perlin_ctor
-                 | irand_ctor
                  | scale_ctor
                  | note_list_to_pat
                  | note_timecat
@@ -45,22 +44,15 @@ note_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 // Notes allow numeric literals and silence
 note_literal: INT | DOUBLE | SILENCE
 
-rand_ctor:   "rand"
-perlin_ctor: "perlin"
-
-// Random integer source as notes (Num a pathway)
-irand_ctor: "irand" note_int_arg
-note_int_arg: INT | "(" pattern_int ")"
-
 // ---- STRICT: scale over finite scale-name domain ----
 scale_ctor: "scale" pattern_scale_string pattern_int
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 note_list: "[" [pattern_note ("," pattern_note)*] "]"
 
-note_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+note_list_to_pat: ("listToPat"
                  | "stack" | "cat" | "fastcat" | "fastCat"
-                 | "slowcat" | "slowCat" | "randcat") note_list
+                 | "slowcat" | "slowCat") note_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Note) pairs ----------
 note_time_pair: "(" pattern_time "," pattern_note ")"
@@ -74,7 +66,6 @@ select_note_ctor: "select" pattern_double note_list
 ?prefix_note: "rev"
             | "brak"
             | "palindrome"
-            | "degrade"
             | "fast" time_arg
             | "slow" time_arg
             | "fastGap" time_arg
@@ -107,7 +98,6 @@ note_scalar: INT | DOUBLE | "(" pattern_note ")"
 ?transform_note: "rev"
                | "brak"
                | "palindrome"
-               | "degrade"
                | "fast" time_arg
                | "slow" time_arg
                | "fastGap" time_arg

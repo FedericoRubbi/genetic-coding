@@ -37,23 +37,21 @@ int_infix_op: OP_HASH
 
 // ---------- Constructors / literals ----------
 ?int_constructor: int_literal
-                | irand_ctor
                 | run_ctor
                 | int_list_to_pat
                 | int_timecat
 
 int_literal: INT | SILENCE
 
-// Explicit, typed constructors (conservative arities)
-irand_ctor: "irand" int_arg          // random in [0, n)
+// Explicit, typed constructors (deterministic only; drop irand)
 run_ctor:   "run"   int_arg          // 0..n-1
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 int_list: "[" [pattern_int ("," pattern_int)*] "]"
 
-int_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+int_list_to_pat: ("listToPat"
                 | "stack" | "cat" | "fastcat" | "fastCat"
-                | "slowcat" | "slowCat" | "randcat") int_list
+                | "slowcat" | "slowCat") int_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Int) pairs ----------
 int_time_pair: "(" pattern_time "," pattern_int ")"
@@ -66,7 +64,6 @@ int_timecat: ("timeCat" | "timecat") "[" int_time_pair_list "]"
 ?prefix_int: "rev"
            | "brak"
            | "palindrome"
-           | "degrade"
            | "fast" time_arg
            | "slow" time_arg
            | "fastGap" time_arg
@@ -95,7 +92,6 @@ int_timecat: ("timeCat" | "timecat") "[" int_time_pair_list "]"
 ?transform_int: "rev"
               | "brak"
               | "palindrome"
-              | "degrade"
               | "fast" time_arg
               | "slow" time_arg
               | "fastGap" time_arg

@@ -36,11 +36,11 @@ def _build_parsers() -> tuple[Lark, Lark]:
     # resource loading (which can interact poorly with Lark's %import resolution).
     earley = Lark.open(
         "src/genetic_music/grammar/main.lark",
-        start="control_pattern",
+        start="control_pattern",  # playable by construction
     )
     gen = Lark.open(
         "src/genetic_music/grammar/main.lark",
-        start="control_pattern",
+        start="control_pattern",  # playable by construction
         parser="lalr",
         lexer="contextual",
     )

@@ -47,12 +47,12 @@ sseqs_ctor: "sseqs" "[" pair_str_list "]"
 // samples: Pattern String -> Pattern Int -> Pattern String
 samples_ctor: "samples" pattern_string pattern_int
 
-// ---------- Lists and list-based combinators ----------
+// ---------- Lists and list-based combinators (deterministic only) ----------
 string_list: "[" [pattern_string ("," pattern_string)*] "]"
 
-string_list_to_pat: ("listToPat" | "choose" | "cycleChoose"
+string_list_to_pat: ("listToPat"
                    | "stack" | "cat" | "fastcat" | "fastCat"
-                   | "slowcat" | "slowCat" | "randcat") string_list
+                   | "slowcat" | "slowCat") string_list
 
 // select: Pattern Double -> [Pattern String] -> Pattern String
 select_ctor: "select" pattern_double string_list
@@ -66,7 +66,6 @@ string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
 ?prefix_string: "rev"
               | "brak"
               | "palindrome"
-              | "degrade"
               | "fast" time_arg
               | "slow" time_arg
               | "fastGap" time_arg
@@ -94,7 +93,6 @@ string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
 ?transform_string: "rev"
                  | "brak"
                  | "palindrome"
-                 | "degrade"
                  | "fast" time_arg
                  | "slow" time_arg
                  | "fastGap" time_arg
