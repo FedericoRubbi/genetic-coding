@@ -7,7 +7,9 @@
 // Keep this module import-only (no other file should depend on it being extended).
 
 // ---------- Booleans ----------
-BOOL: "True" | "False"
+// Use string literals "t" and "f" which Tidal parses as boolean patterns.
+// Raw True/False are scalars and cause type errors in pattern functions.
+BOOL: "\"t\"" | "\"f\""
 
 // ---------- Strings ----------
 %import common.ESCAPED_STRING
@@ -79,4 +81,3 @@ BLOCK_COMMENT: /(?s)\/\*.*?\*\//
 %ignore WS
 %ignore COMMENT
 %ignore BLOCK_COMMENT
-

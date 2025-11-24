@@ -125,7 +125,7 @@ _BASE_EXPLICIT.update(
 
 _EXPLICIT = _make_explicit(_GEN_PARSER, _BASE_EXPLICIT)
 
-_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()"
+_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()<>"
 _ALPHABET_STRATEGY = st.sampled_from(list(_ALPHABET))
 
 _CP_STRINGS = from_lark(
@@ -176,15 +176,16 @@ def generate_expressions(n: int = 10) -> List[PatternTree]:
         raw = _CP_STRINGS.example()
         if not raw.strip():
             continue
-        pretty = _pretty_with_spaces(raw)
-        if len(pretty) <= 20:
-            continue
+        pretty = raw
+        # pretty = _pretty_with_spaces(raw)
+        # if len(pretty) <= 20:
+        #     continue
         try:
             parsed = _EARLEY_PARSER.parse(pretty)
         except Exception:
             continue
-        if not _no_empty_cp_list(parsed):
-            continue
+        # if not _no_empty_cp_list(parsed):
+        #     continue
 
         results.append(PatternTree.from_lark_tree(parsed))
 

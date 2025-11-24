@@ -176,3 +176,31 @@ evolve_population(population, fitness_fn=my_fitness)
 - Start with small populations (20-50)
 - Cache fitness evaluations
 
+## Grammar Visualization Tool (`utils/grammar_viz`)
+
+The Lark grammars used to parse typed TidalCycles patterns live under `src/genetic_music/grammar/`. To explore these grammars as a graph:
+
+- **Generate an HTML graph**
+
+  ```bash
+  # From the project root (ensure pyvis is installed in your environment)
+  venv/bin/python -m utils.grammar_viz \
+      --root src/genetic_music/grammar \
+      --out data/outputs/grammar_viz/grammar_graph.html
+  ```
+
+- **What the tool does**
+  - Scans `.lark` files starting at `--root` (optionally from an `--entry` file following `%import` edges).
+  - Extracts **non-terminal rules**, **terminal definitions**, and **symbol references** from each production.
+  - Builds a symbol-level graph:
+    - Nodes for terminals and non-terminals (optionally file nodes).
+    - Edges from each rule to the symbols it references, plus file→symbol and file→file (`%import`) edges.
+  - Renders an interactive HTML view (pan/zoom, hover, click) using `pyvis`.
+
+- **Useful options**
+  - `--hide-terminals`: hide terminal symbols to declutter large graphs.
+  - `--focus SYMBOL`: show only a small neighborhood around a given symbol (controlled by `--focus-depth`, default 2).
+  - `--no-files`: omit file nodes if you only care about symbol-to-symbol relationships.
+
+Open the generated HTML (e.g., `data/outputs/grammar_viz/grammar_graph.html`) in a browser to navigate the grammar visually.
+
