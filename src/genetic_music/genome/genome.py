@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Sequence, Tuple
 
 from genetic_music.generator.generation import mutate_pattern_tree
 from genetic_music.tree.pattern_tree import PatternTree
@@ -27,20 +27,38 @@ class Genome:
         """
         return cls(pattern_tree=pattern_tree, fitness=0.0)
 
-    def mutate(self, rate: float = 0.1) -> "Genome":
+    def mutate(
+        self,
+        rate: float = 0.1,
+        *,
+        use_target: bool = False,
+        min_length: int = 1,
+        max_examples: int = 50,
+        use_tree_metrics: bool = True,
+        mutation_kinds: Sequence[str] | None = None,
+    ) -> "Genome":
         """Return a mutated copy of this genome.
 
-        With probability ``rate`` a single subtree of the underlying
-        :class:`PatternTree` is replaced by a newly generated subtree that is
-        syntactically valid according to the Lark grammar.  If mutation is not
-        applied, or if subtree generation fails, a structurally identical copy
-        of this genome is returned.
+        With probability ``rate`` a single mutation operator is applied to the
+        underlying :class:`PatternTree`.  If mutation is not applied, or if the
+        operator makes no structural change, a structurally identical copy of
+        this genome is returned.
         """
         # Decide whether to mutate this genome at all.
         if random.random() > rate:
             return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)
 
-        mutated_tree = mutate_pattern_tree(self.pattern_tree)
+        if mutation_kinds is None:
+            mutation_kinds = ("subtree_replace",)
+
+        mutated_tree = mutate_pattern_tree(
+            self.pattern_tree,
+            mutation_kinds=mutation_kinds,
+            use_target=use_target,
+            min_length=min_length,
+            max_examples=max_examples,
+            use_tree_metrics=use_tree_metrics,
+        )
         # If nothing changed, keep fitness; otherwise reset so it is recomputed.
         if mutated_tree is self.pattern_tree:
             return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import random
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 from hypothesis import HealthCheck, Phase, given, settings, target
 from hypothesis import strategies as st
@@ -20,6 +20,7 @@ from hypothesis.errors import HypothesisWarning, NonInteractiveExampleWarning
 from hypothesis.extra.lark import from_lark
 from lark import Lark, Token, Tree
 
+from genetic_music.codegen.tidal_codegen import to_tidal
 from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
@@ -203,7 +204,7 @@ def _collect_targeted_patterns(
         derandomize=False,
         database=database,
         phases=(Phase.generate, Phase.target),
-        suppress_health_check=(HealthCheck.too_slow,),
+        suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much),
         deadline=None,
     )
     @given(p=_CP_STRINGS)
@@ -278,8 +279,72 @@ def _strategy_for_rule(rule_name: str) -> Optional[st.SearchStrategy[str]]:
     return strat
 
 
+def _collect_targeted_subtrees_for_rule(
+    rule_name: str,
+    *,
+    n: int,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
+    use_target: bool,
+) -> List[TreeNode]:
+    """Use targeted Hypothesis search to collect up to ``n`` subtrees for a rule.
+
+    This works similarly to :func:`_collect_targeted_patterns`, but uses the
+    per-rule strategy and mutation parser.  When ``use_target`` is ``False``,
+    Hypothesis still generates examples but :func:`target` is never called,
+    which makes it easy to compare performance with and without targeting.
+    """
+    strat = _strategy_for_rule(rule_name)
+    if strat is None:
+        return []
+
+    collected: List[TreeNode] = []
+
+    @settings(
+        max_examples=max_examples,
+        derandomize=False,
+        database=None,
+        phases=(Phase.generate, Phase.target) if use_target else (Phase.generate,),
+        suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much),
+        deadline=None,
+    )
+    @given(s=strat)
+    def _explore(s: str) -> None:
+        if not isinstance(s, str) or not s.strip():
+            return
+
+        if use_target:
+            target(float(len(s)), label="subtree_length")
+
+        if len(collected) >= n:
+            return
+
+        try:
+            parsed = _MUTATION_PARSER.parse(s, start=rule_name)
+            ptree = PatternTree.from_lark_tree(parsed)
+        except Exception:
+            return
+
+        if use_target and use_tree_metrics:
+            target(float(ptree.size()), label="subtree_size")
+            target(float(ptree.depth()), label="subtree_depth")
+
+        if len(s) >= min_length and len(collected) < n:
+            collected.append(ptree.root)
+
+    _explore()
+    return collected
+
+
 def generate_subtree_for_rule(
-    rule_name: str, max_attempts: int = 20
+    rule_name: str,
+    max_attempts: int = 20,
+    *,
+    use_target: bool,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
 ) -> Optional[TreeNode]:
     """Generate a new subtree for the given grammar rule.
 
@@ -289,6 +354,23 @@ def generate_subtree_for_rule(
     If no valid example can be found within ``max_attempts`` draws, returns
     ``None``.
     """
+    # Optional targeted search for a high-complexity subtree.
+
+    # if use_target:
+    nodes = _collect_targeted_subtrees_for_rule(
+        rule_name,
+        n=1,
+        min_length=min_length,
+        max_examples=max_examples,
+        use_tree_metrics=use_tree_metrics,
+        use_target=use_target,  # targetting may be disables but we still change settings
+    )
+    if nodes:
+        return nodes[0]
+
+    print(f"No targeted nodes found for rule {rule_name}, falling back to simple generation")
+
+    # Fallback: simple example-based generation as before.
     strat = _strategy_for_rule(rule_name)
     if strat is None:
         return None
@@ -297,7 +379,10 @@ def generate_subtree_for_rule(
         # Draw a candidate string for this rule.
         text = strat.example()
         if not isinstance(text, str) or not text.strip():
-            print(f"Error generating {text} for rule {rule_name}: Text is not a string or is empty")
+            print(
+                f"Error generating {text} for rule {rule_name}: "
+                "Text is not a string or is empty"
+            )
             continue
 
         try:
@@ -367,33 +452,146 @@ def _clone_with_replacement(
     return TreeNode(op=node.op, children=new_children, value=node.value)
 
 
-def mutate_pattern_tree(tree: PatternTree) -> PatternTree:
-    """Return a new :class:`PatternTree` with one subtree replaced.
+MutationOp = Callable[[PatternTree, random.Random], PatternTree]
 
-    A node is chosen uniformly at random among all nodes in the tree, and its
-    ``op`` is used as the grammar rule name for generating a new subtree via
-    :func:`generate_subtree_for_rule`.  If subtree generation fails, the
-    original tree is returned unchanged.
+
+def _subtree_replace_op_factory(
+    *,
+    use_target: bool,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
+) -> MutationOp:
+    """Factory for the classic subtree-replacement mutation operator.
+
+    This matches the previous behaviour of :func:`mutate_pattern_tree`: pick a
+    random node, generate a new subtree starting from that node's ``op`` via
+    :func:`generate_subtree_for_rule`, and clone the tree with that subtree
+    replaced.  If subtree generation fails, the original tree is returned.
     """
-    # Restrict mutation targets to nodes whose ``op`` is a valid mutation
-    # start rule for our dedicated mutation parser.
-    candidate_nodes = [
-        (path, node)
-        for path, node in _iter_nodes_with_paths(tree.root)
-        if node.op in _MUTATION_START_SET
-    ]
-    if not candidate_nodes:
-        return tree
 
-    path, target = random.choice(candidate_nodes)
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Restrict mutation targets to nodes whose ``op`` is a valid mutation
+        # start rule for our dedicated mutation parser.
+        candidate_nodes = [
+            (path, node)
+            for path, node in _iter_nodes_with_paths(tree.root)
+            if node.op in _MUTATION_START_SET
+        ]
+        if not candidate_nodes:
+            return tree
 
-    # Attempt to generate a replacement subtree using the node's op as rule name.
-    new_subtree = generate_subtree_for_rule(target.op)
-    if new_subtree is None:
-        return tree
+        path, target = rng.choice(candidate_nodes)
 
-    new_root = _clone_with_replacement(tree.root, path, new_subtree)
-    return PatternTree(root=new_root)
+        # Attempt to generate a replacement subtree using the node's op as rule name.
+        new_subtree = generate_subtree_for_rule(
+            target.op,
+            use_target=use_target,
+            min_length=min_length,
+            max_examples=max_examples,
+            use_tree_metrics=use_tree_metrics,
+        )
+        if new_subtree is None:
+            return tree
+
+        new_root = _clone_with_replacement(tree.root, path, new_subtree)
+        return PatternTree(root=new_root)
+
+    return op
+
+
+def _stack_wrap_op_factory(
+    *,
+    use_target: bool,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
+) -> MutationOp:
+    """Factory for a stack-based mutation operator.
+
+    This operator wraps the entire existing pattern in a ``stack [...]`` list,
+    adding a second, randomly generated playable pattern as the new sibling.
+    The result is a new pattern tree whose root corresponds to a ``stack``
+    combinator, increasing structural complexity in a bottom-up way.
+    """
+
+    # The config knobs are currently unused but kept for a consistent interface
+    # and future experimentation (e.g. using targeted generation for the new
+    # branch).
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code.
+        base_code = to_tidal(tree)
+
+        # Generate a fresh playable pattern for the second branch.
+        new_branch_trees = generate_expressions(1)
+        new_branch_code = to_tidal(new_branch_trees[0])
+
+        # Build a stack expression: stack [base, new]
+        stacked_code = f"stack [{base_code}, {new_branch_code}]"
+
+        # Parse back into a PatternTree.
+        return pattern_tree_from_string(stacked_code)
+
+    return op
+
+
+_MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
+    "subtree_replace": _subtree_replace_op_factory,
+    "stack_wrap": _stack_wrap_op_factory,
+}
+
+
+def mutate_pattern_tree(
+    tree: PatternTree,
+    *,
+    mutation_kinds: Sequence[str] = ("subtree_replace",),
+    use_target: bool = False,
+    min_length: int = 10,
+    max_examples: int = 500,
+    use_tree_metrics: bool = True,
+    rng: Optional[random.Random] = None,
+) -> PatternTree:
+    """Apply one of several mutation operators to ``tree`` and return the result.
+
+    Parameters
+    ----------
+    tree:
+        The input :class:`PatternTree` to mutate.
+    mutation_kinds:
+        A non-empty sequence of mutation operator names to choose from,
+        e.g. ``(\"subtree_replace\", \"stack_wrap\")``.
+    use_target, min_length, max_examples, use_tree_metrics:
+        Configuration knobs passed through to operators that make use of the
+        Hypothesis-based generation helpers.
+    rng:
+        Optional :class:`random.Random` instance to control randomness.  If
+        omitted, the module-level :mod:`random` is used.
+    """
+    if rng is None:
+        rng = random
+
+    if not mutation_kinds:
+        mutation_kinds = ("subtree_replace",)
+
+    # Instantiate operator implementations with the given configuration.
+    ops: List[MutationOp] = []
+    for name in mutation_kinds:
+        factory = _MUTATION_OPERATOR_FACTORIES.get(name)
+        if factory is None:
+            raise ValueError(f"Unknown mutation operator {name!r}")
+        ops.append(
+            factory(
+                use_target=use_target,
+                min_length=min_length,
+                max_examples=max_examples,
+                use_tree_metrics=use_tree_metrics,
+            )
+        )
+
+    op = rng.choice(ops)
+    return op(tree, rng)
 
 
 # ---------------------------------------------------------------------------

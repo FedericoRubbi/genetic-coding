@@ -9,7 +9,7 @@ from pathlib import Path
 # --- Internal imports, updated for new package layout ---
 from genetic_music.genome.genome import Genome
 from genetic_music.genome.population import evolve_population
-from genetic_music.generator.generation import generate_expressions
+from genetic_music.generator.generation import generate_expressions_targeted
 from genetic_music.backend.backend import Backend
 from genetic_music.codegen.tidal_codegen import to_tidal
 
@@ -24,13 +24,20 @@ def structural_fitness(genome: Genome) -> float:
     ops, sounds = set(), set()
 
     def collect(node):
+        # Track which grammar rules / token types appear.
         ops.add(node.op)
-        if node.op == "sound" and node.value:
-            sounds.add(node.value)
+        # SAMPLE_STRING leaves encode concrete sample names such as "bd", "sn", etc.
+        # In the PatternTree they appear with module‑qualified op names like
+        # ``control__pattern_string_sample__SAMPLE_STRING`` and a quoted value.
+        if "SAMPLE_STRING" in node.op and node.value:
+            # Strip surrounding quotes for readability when counting unique sounds.
+            sounds.add(node.value.strip('"'))
         for child in node.children:
             collect(child)
 
-    collect(tree)
+    # Start from the underlying root node to avoid treating PatternTree itself
+    # as a node in the structural walk.
+    collect(tree.root)
 
     # Normalized scores
     depth_score = min(depth / 5, 1.0)
@@ -68,46 +75,60 @@ def main():
     # 3. Initial population (PatternTree-based genomes)
     # -------------------------------------------------------------------------
     pop_size = 10
-    expressions = generate_expressions(pop_size)
+    expressions = generate_expressions_targeted(pop_size)
     population = [Genome(pattern_tree=expression) for expression in expressions]
 
     print("\nInitial Population:")
     print("=" * 50)
     for i, genome in enumerate(population):
+        # if i != 0:
+        #     continue
         print(f"\nIndividual {i}:")
-        print(f"Tree: {genome.pattern_tree}")
+        # print(f"Tree: {genome.pattern_tree}")
         print(f"Tidal code: {to_tidal(genome.pattern_tree)}")
 
     # -------------------------------------------------------------------------
     # 4. Evolution
     # -------------------------------------------------------------------------
-    evolved = evolve_population(
-        population=population,
-        fitness_func=structural_fitness,
-        mutation_rate=0.2,
-        elitism=2,
-    )
 
-    # -------------------------------------------------------------------------
-    # 5. Show best pattern and save a WAV file
-    # -------------------------------------------------------------------------
-    best = max(evolved, key=lambda g: g.fitness)
+    evolved = population
+    for _ in range(10):
+        # if _ != 0:
+        #     continue
+        evolved = evolve_population(
+            population=evolved,
+            fitness_func=structural_fitness,
+            mutation_rate=1,
+            elitism=0,
+        )
 
-    # Quick sanity check: show a mutated variant of the best genome
-    mutated_example = best.mutate(rate=1.0)
-    print("\nMutated variant of best individual (sanity check):")
-    print("-" * 50)
-    print(f"Original tree: {best.pattern_tree}")
-    print(f"Mutated tree:  {mutated_example.pattern_tree}")
-    print(f"Original Tidal: {to_tidal(best.pattern_tree)}")
-    print(f"Mutated Tidal:  {to_tidal(mutated_example.pattern_tree)}")
 
-    print("\nBest Evolved Pattern:")
-    print("=" * 50)
-    print(f"Fitness: {best.fitness:.4f}")
-    print(f"Tree: {best.pattern_tree}")
-    pattern = to_tidal(best.pattern_tree)
-    print(f"Pattern: {pattern}")
+
+        # -------------------------------------------------------------------------
+        # 5. Show best pattern and save a WAV file
+        # -------------------------------------------------------------------------
+        best = max(evolved, key=lambda g: g.fitness)
+
+        print(f"Evolved population size: {len(evolved)}")
+
+        # Quick sanity check: show a mutated variant of the best genome
+        mutated_example = best.mutate(
+            rate=1.0,
+            mutation_kinds=("stack_wrap",),
+        )
+        print("\nMutated variant of best individual (sanity check):")
+        print("-" * 50)
+        # print(f"Original tree: {best.pattern_tree}")
+        # print(f"Mutated tree:  {mutated_example.pattern_tree}")
+        print(f"Original Tidal: {to_tidal(best.pattern_tree)}")
+        print(f"Mutated Tidal:  {to_tidal(mutated_example.pattern_tree)}")
+
+        print("\nBest Evolved Pattern:")
+        print("=" * 50)
+        print(f"Fitness: {best.fitness:.4f}")
+        print(f"Tree: {best.pattern_tree}")
+        pattern = to_tidal(best.pattern_tree)
+        print(f"Pattern: {pattern}")
 
     output_path = output_dir / "best_pattern.wav"
     abs_output_path = output_path.resolve()
