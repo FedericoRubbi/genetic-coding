@@ -65,9 +65,11 @@ cp_infix_op: OP_HASH
 ?cp_playable_term: "(" control_pattern ")"                 // grouping keeps playability
                  | prefix_cp "(" cp_playable_term ")"      // safe prefix transforms
                  | cp_sound_atom                           // direct constructors with sound
-                 // Named binary combinators: at least one side playable
-                 | cp_binary_named "(" cp_playable_term ")" "(" cp_any ")" 
-                 | cp_binary_named "(" cp_any ")" "(" cp_playable_term ")"
+                 // Named binary combinators: both sides must be playable to avoid
+                 // musically-empty overlays.
+                 // This keeps the whole expression playable and ensures every overlay
+                 // actually combines two sound-bearing patterns.
+                 | cp_binary_named "(" cp_playable_term ")" "(" cp_playable_term ")"
                  // Higher-order appliers: body must be playable
                  | cp_applied_playable
                  | cp_jux_playable
