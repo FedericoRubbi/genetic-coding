@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import random
 import warnings
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
+from hypothesis import HealthCheck, Phase, given, settings, target
 from hypothesis import strategies as st
 from hypothesis.errors import HypothesisWarning, NonInteractiveExampleWarning
 from hypothesis.extra.lark import from_lark
@@ -130,7 +131,7 @@ def _make_explicit(gen_lark: Lark, base_to_strategy):
         for m in matches:
             # print(f"Adding {m} = {strat}")
             explicit[m] = strat
-    print(f"Explicit: {explicit}")
+    # print(f"Explicit: {explicit}")
     return explicit
 
 
@@ -175,6 +176,70 @@ _CP_STRINGS = from_lark(
 )
 
 
+def _collect_targeted_patterns(
+    n: int,
+    *,
+    min_length: int,
+    max_examples: int,
+    database: Any | None = None,
+    use_tree_metrics: bool = True,
+) -> List[str]:
+    """Use Hypothesis' targeted search to collect up to ``n`` pattern strings.
+
+    This helper drives the ``_CP_STRINGS`` strategy under a ``@given`` test
+    with a :func:`target` call that rewards longer and structurally larger
+    patterns.  It returns a list of *raw* pattern strings; callers are
+    responsible for parsing and wrapping them as :class:`PatternTree`
+    instances.
+
+    The number of collected patterns may be less than ``n`` if the search
+    fails to discover enough high-scoring examples within ``max_examples``.
+    """
+
+    collected: List[str] = []
+
+    @settings(
+        max_examples=max_examples,
+        derandomize=False,
+        database=database,
+        phases=(Phase.generate, Phase.target),
+        suppress_health_check=(HealthCheck.too_slow,),
+        deadline=None,
+    )
+    @given(p=_CP_STRINGS)
+    def _explore(p: str) -> None:
+        # Ensure we only work with non-empty strings.
+        if not isinstance(p, str) or not p.strip():
+            return
+
+        # Primary metric: maximize textual length of the pattern.
+        target(float(len(p)), label="pattern_length")
+
+        # Optional secondary metrics on the parsed tree structure.  We only
+        # bother computing these while we are still filling the collection.
+        if use_tree_metrics and len(collected) < n:
+            try:
+                tree = parse_control_pattern(p)
+                ptree = PatternTree.from_lark_tree(tree)
+            except Exception:
+                # Parsing failures are treated as uninteresting; we simply
+                # skip structural metrics for this example.
+                pass
+            else:
+                # Reward larger trees (more nodes) and deeper trees.
+                target(float(ptree.size()), label="tree_size")
+                target(float(ptree.depth()), label="tree_depth")
+
+        # Record high-scoring candidates, favouring longer strings.
+        if len(p) >= min_length and len(collected) < n:
+            collected.append(p)
+
+    # Run the Hypothesis engine once; it will execute ``_explore`` up to
+    # ``max_examples`` times (or fewer if it deems the search space saturated).
+    _explore()
+    return collected
+
+
 # Cache of per-rule generative strategies (rule name -> strategy yielding strings)
 _RULE_STRATEGIES: Dict[str, Optional[st.SearchStrategy[str]]] = {}
 
@@ -190,12 +255,12 @@ def _strategy_for_rule(rule_name: str) -> Optional[st.SearchStrategy[str]]:
     # entrypoints for the dedicated mutation parser.
     if rule_name not in _MUTATION_START_SET:
         print(f"Rule {rule_name} is not a valid mutation start rule")
-        print(f"Valid mutation start rules: {_MUTATION_START_SET}")
+        # print(f"Valid mutation start rules: {_MUTATION_START_SET}")
         return None
 
     if rule_name in _RULE_STRATEGIES:
         print(f"Returning cached strategy for rule {rule_name}")
-        print(f"Cached strategy: {_RULE_STRATEGIES[rule_name]}")
+        # print(f"Cached strategy: {_RULE_STRATEGIES[rule_name]}")
         return _RULE_STRATEGIES[rule_name]
 
     try:
@@ -375,6 +440,61 @@ def generate_expressions(n: int = 10) -> List[PatternTree]:
         # if not _no_empty_cp_list(parsed):
         #     continue
 
+        results.append(PatternTree.from_lark_tree(parsed))
+
+    return results
+
+
+def generate_expressions_targeted(
+    n: int = 10,
+    *,
+    min_length: int = 30,
+    max_examples: int = 1000,
+    database: Any | None = None,
+    use_tree_metrics: bool = True,
+) -> List[PatternTree]:
+    """Generate up to ``n`` complex patterns using Hypothesis' targeted search.
+
+    Compared to :func:`generate_expressions`, this function uses a dedicated
+    :func:`target`-driven search that biases the Hypothesis engine towards
+    longer and structurally richer control patterns.  It is primarily intended
+    for exploration and seeding of genetic algorithms, where diversity and
+    complexity are more important than simplicity or shrinking behaviour.
+
+    Parameters
+    ----------
+    n:
+        Maximum number of patterns to return.
+    min_length:
+        Minimal allowed string length for a pattern to be considered
+        ``interesting`` and collected.
+    max_examples:
+        Upper bound on the number of examples Hypothesis will explore while
+        searching for high-scoring patterns.  Larger values increase runtime
+        but typically yield more and more complex patterns.
+    database:
+        Optional Hypothesis example database.  The default ``None`` disables
+        persistent storage, which helps avoid cross-run bias towards previously
+        seen examples.
+    use_tree_metrics:
+        If ``True``, include tree depth and size as additional metrics for
+        :func:`target`, in addition to raw string length.
+    """
+    pattern_strings = _collect_targeted_patterns(
+        n,
+        min_length=min_length,
+        max_examples=max_examples,
+        database=database,
+        use_tree_metrics=use_tree_metrics,
+    )
+
+    results: List[PatternTree] = []
+    for s in pattern_strings:
+        try:
+            parsed = parse_control_pattern(s)
+        except Exception as e:
+            print(f"Error parsing targeted pattern {s!r}: {e}")
+            continue
         results.append(PatternTree.from_lark_tree(parsed))
 
     return results

@@ -40,6 +40,10 @@ def evolve_population(
         parent = population[int(random.random() ** 2 * len(population))]
         # Create mutated offspring
         offspring = parent.mutate(mutation_rate)
+
+        if offspring.fitness == 0.0:
+            offspring.fitness = fitness_func(offspring)
+            
         new_population.append(offspring)
     
     return new_population
