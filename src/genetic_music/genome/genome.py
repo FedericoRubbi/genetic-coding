@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from typing import Tuple
 
+from genetic_music.generator.generation import mutate_pattern_tree
 from genetic_music.tree.pattern_tree import PatternTree
 
 
@@ -26,13 +28,24 @@ class Genome:
         return cls(pattern_tree=pattern_tree, fitness=0.0)
 
     def mutate(self, rate: float = 0.1) -> "Genome":
-        """Return a (currently unmutated) copy of this genome.
+        """Return a mutated copy of this genome.
 
-        Mutation of the underlying tree structure is left for future work;
-        for now we return a shallow copy so the evolutionary loop can run.
+        With probability ``rate`` a single subtree of the underlying
+        :class:`PatternTree` is replaced by a newly generated subtree that is
+        syntactically valid according to the Lark grammar.  If mutation is not
+        applied, or if subtree generation fails, a structurally identical copy
+        of this genome is returned.
         """
-        # Shallow copy is sufficient while we have no in-place mutation.
-        return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)
+        # Decide whether to mutate this genome at all.
+        if random.random() > rate:
+            return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)
+
+        mutated_tree = mutate_pattern_tree(self.pattern_tree)
+        # If nothing changed, keep fitness; otherwise reset so it is recomputed.
+        if mutated_tree is self.pattern_tree:
+            return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)
+
+        return Genome(pattern_tree=mutated_tree, fitness=0.0)
 
     def crossover(self, other: "Genome") -> Tuple["Genome", "Genome"]:
         """Perform crossover with another genome.

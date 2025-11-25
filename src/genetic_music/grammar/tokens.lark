@@ -9,7 +9,8 @@
 // ---------- Booleans ----------
 // Use string literals "t" and "f" which Tidal parses as boolean patterns.
 // Raw True/False are scalars and cause type errors in pattern functions.
-BOOL: "\"t\"" | "\"f\""
+BOOL_ATOM: "t" | "f"
+BOOL: "\"" BOOL_ATOM (" " BOOL_ATOM)* "\""
 
 // ---------- Strings ----------
 %import common.ESCAPED_STRING

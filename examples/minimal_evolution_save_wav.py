@@ -93,6 +93,15 @@ def main():
     # -------------------------------------------------------------------------
     best = max(evolved, key=lambda g: g.fitness)
 
+    # Quick sanity check: show a mutated variant of the best genome
+    mutated_example = best.mutate(rate=1.0)
+    print("\nMutated variant of best individual (sanity check):")
+    print("-" * 50)
+    print(f"Original tree: {best.pattern_tree}")
+    print(f"Mutated tree:  {mutated_example.pattern_tree}")
+    print(f"Original Tidal: {to_tidal(best.pattern_tree)}")
+    print(f"Mutated Tidal:  {to_tidal(mutated_example.pattern_tree)}")
+
     print("\nBest Evolved Pattern:")
     print("=" * 50)
     print(f"Fitness: {best.fitness:.4f}")

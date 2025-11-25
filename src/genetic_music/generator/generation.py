@@ -10,14 +10,16 @@ This module exposes a small, tidy API:
 
 from __future__ import annotations
 
+import random
 import warnings
-from typing import List
+from typing import Dict, List, Optional
 
 from hypothesis import strategies as st
 from hypothesis.errors import HypothesisWarning, NonInteractiveExampleWarning
 from hypothesis.extra.lark import from_lark
 from lark import Lark, Token, Tree
 
+from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
 # Silence Hypothesis warnings when using strategies as a data generator.
@@ -48,6 +50,39 @@ def _build_parsers() -> tuple[Lark, Lark]:
 
 
 _EARLEY_PARSER, _GEN_PARSER = _build_parsers()
+
+
+# ---------------------------------------------------------------------------
+# Additional parser for subtree mutation
+# ---------------------------------------------------------------------------
+
+# For mutation we want to be able to start from many internal control rules,
+# not only ``control_pattern``.  We derive the available rule names from the
+# generation parser and select those belonging to the ``control`` module.
+_CONTROL_RULE_NAMES = sorted(
+    {
+        name
+        for rule in _GEN_PARSER.rules
+        for name in [getattr(getattr(rule, "origin", None), "name", None)]
+        if isinstance(name, str) and name.startswith("control__")
+    }
+)
+
+_MUTATION_START_RULES: List[str] = [
+    # Top-level control pattern entrypoint
+    "control_pattern",
+    # All rules that are namespaced under the imported ``control`` grammar
+    *_CONTROL_RULE_NAMES,
+]
+_MUTATION_START_SET = set(_MUTATION_START_RULES)
+
+# Dedicated LALR parser that accepts any of the mutation start rules.
+_MUTATION_PARSER = Lark.open(
+    "src/genetic_music/grammar/main.lark",
+    start=_MUTATION_START_RULES,
+    parser="lalr",
+    lexer="contextual",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -84,14 +119,18 @@ def _pretty_with_spaces(s: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _make_explicit(gen_lark: Lark, base_to_strategy):
+    print(f"Making explicit for {gen_lark}")
     term_names = {t.name for t in gen_lark.terminals}
     explicit = {}
     for base, strat in base_to_strategy.items():
         matches = [n for n in term_names if n == base or n.endswith("__" + base)]
         if not matches:
+            # print(f"No matches for {base}")
             continue
         for m in matches:
+            # print(f"Adding {m} = {strat}")
             explicit[m] = strat
+    print(f"Explicit: {explicit}")
     return explicit
 
 
@@ -125,7 +164,7 @@ _BASE_EXPLICIT.update(
 
 _EXPLICIT = _make_explicit(_GEN_PARSER, _BASE_EXPLICIT)
 
-_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()<>"
+_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()"
 _ALPHABET_STRATEGY = st.sampled_from(list(_ALPHABET))
 
 _CP_STRINGS = from_lark(
@@ -136,12 +175,160 @@ _CP_STRINGS = from_lark(
 )
 
 
+# Cache of per-rule generative strategies (rule name -> strategy yielding strings)
+_RULE_STRATEGIES: Dict[str, Optional[st.SearchStrategy[str]]] = {}
+
+
+def _strategy_for_rule(rule_name: str) -> Optional[st.SearchStrategy[str]]:
+    """Return (and cache) a Hypothesis strategy that generates strings for a rule.
+
+    The strategy samples strings that are valid derivations of the given
+    non-terminal ``rule_name`` according to the LALR grammar used for
+    mutation.  Returns ``None`` if such a strategy cannot be constructed.
+    """
+    # Only attempt to build a strategy for rules that are valid mutation
+    # entrypoints for the dedicated mutation parser.
+    if rule_name not in _MUTATION_START_SET:
+        print(f"Rule {rule_name} is not a valid mutation start rule")
+        print(f"Valid mutation start rules: {_MUTATION_START_SET}")
+        return None
+
+    if rule_name in _RULE_STRATEGIES:
+        print(f"Returning cached strategy for rule {rule_name}")
+        print(f"Cached strategy: {_RULE_STRATEGIES[rule_name]}")
+        return _RULE_STRATEGIES[rule_name]
+
+    try:
+        strat: st.SearchStrategy[str] = from_lark(
+            _MUTATION_PARSER,
+            start=rule_name,
+            explicit=_EXPLICIT,
+            alphabet=_ALPHABET_STRATEGY,
+        )
+    except Exception as e:
+        print(f"Error building strategy for rule {rule_name}: {e}")
+        strat = None  # type: ignore[assignment]
+
+    _RULE_STRATEGIES[rule_name] = strat
+    return strat
+
+
+def generate_subtree_for_rule(
+    rule_name: str, max_attempts: int = 20
+) -> Optional[TreeNode]:
+    """Generate a new subtree for the given grammar rule.
+
+    This uses Hypothesis' Lark integration to draw example strings from the
+    grammar starting at ``rule_name``, then parses them back into a Lark tree
+    (also starting at ``rule_name``) and converts that into a ``TreeNode`` tree.
+    If no valid example can be found within ``max_attempts`` draws, returns
+    ``None``.
+    """
+    strat = _strategy_for_rule(rule_name)
+    if strat is None:
+        return None
+
+    for _ in range(max_attempts):
+        # Draw a candidate string for this rule.
+        text = strat.example()
+        if not isinstance(text, str) or not text.strip():
+            print(f"Error generating {text} for rule {rule_name}: Text is not a string or is empty")
+            continue
+
+        try:
+            # Parse the subtree starting from this rule.
+            parsed = _MUTATION_PARSER.parse(text, start=rule_name)
+        except Exception as e:
+            print(f"Error parsing {text} for rule {rule_name}: {e}")
+            continue
+
+        ptree = PatternTree.from_lark_tree(parsed)
+        return ptree.root
+
+    return None
+
+
 def _no_empty_cp_list(tree: Tree) -> bool:
     """Disallow empty ``cp_list`` like ``randcat []``."""
     for st_tree in tree.iter_subtrees_topdown():
         if st_tree.data == "cp_list" and len(st_tree.children) == 0:
             return False
     return True
+
+
+# ---------------------------------------------------------------------------
+# Tree mutation helpers
+# ---------------------------------------------------------------------------
+
+def _iter_nodes_with_paths(
+    root: TreeNode, path_prefix: Optional[List[int]] = None
+) -> List[tuple[List[int], TreeNode]]:
+    """Return a list of (path, node) pairs for all nodes in the tree.
+
+    ``path`` is a list of child indices from the root to the node.
+    """
+    if path_prefix is None:
+        path_prefix = []
+
+    results: List[tuple[List[int], TreeNode]] = []
+
+    def _walk(node: TreeNode, path: List[int]) -> None:
+        results.append((path, node))
+        for idx, child in enumerate(node.children):
+            _walk(child, path + [idx])
+
+    _walk(root, path_prefix)
+    return results
+
+
+def _clone_with_replacement(
+    node: TreeNode, path: List[int], new_subtree: TreeNode
+) -> TreeNode:
+    """Clone ``node`` while replacing the node at ``path`` with ``new_subtree``."""
+    if not path:
+        # We are at the target node; replace entirely.
+        return new_subtree
+
+    idx = path[0]
+    # Clone current node with potentially replaced child.
+    new_children: List[TreeNode] = []
+    for i, child in enumerate(node.children):
+        if i == idx:
+            new_children.append(_clone_with_replacement(child, path[1:], new_subtree))
+        else:
+            # Shallow copy of unaffected children is fine; they are immutable for our purposes.
+            new_children.append(child)
+
+    return TreeNode(op=node.op, children=new_children, value=node.value)
+
+
+def mutate_pattern_tree(tree: PatternTree) -> PatternTree:
+    """Return a new :class:`PatternTree` with one subtree replaced.
+
+    A node is chosen uniformly at random among all nodes in the tree, and its
+    ``op`` is used as the grammar rule name for generating a new subtree via
+    :func:`generate_subtree_for_rule`.  If subtree generation fails, the
+    original tree is returned unchanged.
+    """
+    # Restrict mutation targets to nodes whose ``op`` is a valid mutation
+    # start rule for our dedicated mutation parser.
+    candidate_nodes = [
+        (path, node)
+        for path, node in _iter_nodes_with_paths(tree.root)
+        if node.op in _MUTATION_START_SET
+    ]
+    if not candidate_nodes:
+        return tree
+
+    path, target = random.choice(candidate_nodes)
+
+    # Attempt to generate a replacement subtree using the node's op as rule name.
+    new_subtree = generate_subtree_for_rule(target.op)
+    if new_subtree is None:
+        return tree
+
+    new_root = _clone_with_replacement(tree.root, path, new_subtree)
+    return PatternTree(root=new_root)
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +369,8 @@ def generate_expressions(n: int = 10) -> List[PatternTree]:
         #     continue
         try:
             parsed = _EARLEY_PARSER.parse(pretty)
-        except Exception:
+        except Exception as e:
+            print(f"Error parsing {pretty}: {e}")
             continue
         # if not _no_empty_cp_list(parsed):
         #     continue
