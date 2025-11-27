@@ -12,6 +12,7 @@ from genetic_music.genome.population import evolve_population
 from genetic_music.generator.generation import generate_expressions_targeted
 from genetic_music.backend.backend import Backend
 from genetic_music.codegen.tidal_codegen import to_tidal
+from genetic_music.fitness_evaluation.fitness_evaluation import get_fitness
 
 
 def structural_fitness(genome: Genome) -> float:
@@ -53,7 +54,7 @@ def main():
     # -------------------------------------------------------------------------
     print(f"Current working directory: {Path.cwd()}")
     BOOT_TIDAL = os.path.expanduser(
-        "/Users/federicorubbi/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
+        "/Users/jiechen/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
     )
     if not os.path.exists(BOOT_TIDAL):
         print("Please set the correct path to your BootTidal.hs file!")
@@ -97,7 +98,7 @@ def main():
         #     continue
         evolved = evolve_population(
             population=evolved,
-            fitness_func=structural_fitness,
+            fitness_func=get_fitness,
             mutation_rate=1,
             elitism=0,
         )

@@ -3,6 +3,9 @@ from pydub.playback import play
 import librosa
 import numpy as np
 import os
+from genetic_music.backend.backend import Backend
+from genetic_music.generator.generation import generate_expressions
+from genetic_music.genome.genome import Genome
 
 # UTILS FUNCTIONS
 def ensure_wav(path):
@@ -10,6 +13,8 @@ def ensure_wav(path):
     Ensures the audio file at the given path is available in .wav format for analysis 
     (converts from mp3 or other formats if needed)
     """
+    if not isinstance(path,str):
+        path = str(path)
     if path.endswith('.wav'): 
         return path
 
@@ -165,33 +170,41 @@ def pareto_front(candidates):
             front.append(a)
     return front
 
-# MAIN EXECUTION
-if __name__ == "__main__":
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    target = os.path.join(base_dir, "data/target_audio/target.mp3")
-    candidate_dir = os.path.join(base_dir, "data/candidate_audio")
+BOOT_TIDAL = "/Users/jiechen/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
+backend = Backend(
+        boot_tidal_path=BOOT_TIDAL,
+        orbit=8,    # SuperDirt orbit to render on
+        stream=12   # dedicated Tidal stream (d12)
+    )
+def get_fitness(candidate):
+    
 
-    candidates = [os.path.join(candidate_dir, f) for f in os.listdir(candidate_dir) if f.endswith(('.mp3', '.wav'))]
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+
+
+    target = os.path.join(base_dir, "../../../data/target/target.mp3")
+    candidate_dir = os.path.join(base_dir, "../../../data/candidate/candidate_audio")
+
+    recorded_path = backend.play_tidal_code(
+        rhs_pattern_expr=candidate,
+        duration=8.0,
+        output_path=os.path.join(candidate_dir, "candidate.wav"),
+        playback_after=False,
+    )
+
     target_wav = ensure_wav(target)
 
-    print(f"Target: {os.path.basename(target_wav)}")
-    results = []
+    fitness, _ = compute_fitness(recorded_path, target_wav)
+    return fitness
 
-    for c in candidates:
-        fitness, components = compute_fitness(c, target_wav)
-        results.append((os.path.basename(c), fitness))
-        print(f"\nCandidate: {os.path.basename(c)}")
-        print(f"  Total fitness: {fitness:.3f}")
-        for k, v in components.items():
-            print(f"    {k}: {v:.3f}")
 
-    print("\nSorted candidates (from best to worst):")
-    for name, score in sorted(results, key=lambda x: x[1], reverse=True):
-        print(f"{name}: {score:.3f}")
-    
-    # Play the best candidate and the target for auditory comparison
-    best_candidate = max(results, key=lambda x: x[1])[0]
-    print(f"\nPlaying best candidate: {best_candidate}")
-    play(AudioSegment.from_file(os.path.join(candidate_dir, best_candidate)))
-    print("Playing target audio:")
-    play(AudioSegment.from_file(target))
+
+
+# MAIN EXECUTION
+if __name__ == "__main__":
+
+    expression = generate_expressions(1)
+    genome = Genome(expression[0])
+    fit = get_fitness(genome)
+
+    print(fit)
