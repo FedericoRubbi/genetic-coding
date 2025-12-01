@@ -28,7 +28,6 @@ from genetic_music.tree.pattern_tree import PatternTree
 warnings.filterwarnings("ignore", category=NonInteractiveExampleWarning)
 warnings.filterwarnings("ignore", category=HypothesisWarning)
 
-
 # ---------------------------------------------------------------------------
 # Parser construction
 # ---------------------------------------------------------------------------
@@ -50,9 +49,7 @@ def _build_parsers() -> tuple[Lark, Lark]:
     )
     return earley, gen
 
-
 _EARLEY_PARSER, _GEN_PARSER = _build_parsers()
-
 
 # ---------------------------------------------------------------------------
 # Additional parser for subtree mutation
@@ -85,7 +82,6 @@ _MUTATION_PARSER = Lark.open(
     parser="lalr",
     lexer="contextual",
 )
-
 
 # ---------------------------------------------------------------------------
 # Token pretty-printing helpers
@@ -536,12 +532,163 @@ def _stack_wrap_op_factory(
 
     return op
 
+# Inner transformations that can be applied within the "struct" operator
+STRUCT_INNERS = [
+    "rev",          # Reverses the pattern in time
+    "fast 2",       # Plays the pattern twice as fast
+    "slow 2",       # Plays the pattern at half speed
+    "iter 2",       # Iterates pattern twice within the same cycle
+    "degradeBy 0.2" # Probabilistically drops 20% of the events
+]
+
+# Functions used to create valid "mask" patterns for the "struct" operator, that define when events are allowed to occur
+MASK_GENERATORS = [
+    # Boolean mask t(a,b): a pulses across b positions
+    lambda rng: f"t({rng.randint(2,8)},{rng.choice([8,12,16])})",
+    # Binary string mask (e.g: "1011001")
+    lambda rng: '"' + "".join(rng.choice(['0','1']) for _ in range(rng.randint(4,16))) + '"'
+]
+
+def _struct_op_factory(
+        *,
+        use_target: bool,
+        min_length: int,
+        max_examples: int,
+        use_tree_metrics: bool,
+    ) -> MutationOp:
+    """
+    Mutation operator that wraps an existing pattern inside a Tidal "struct" expression, 
+    which applies a mask to control timing. Optionally applies a transformation.
+
+    Produces patterns like:
+        struct ("0101") (basePattern)
+        struct (t(3,8)) (rev (basePattern))
+    """
+
+    # Unused config parameters kept intentionally
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code
+        base = to_tidal(tree)
+
+        # Choose inner transformation
+        inner = rng.choice(STRUCT_INNERS)
+
+        # Generate a valid mask
+        mask = rng.choice(MASK_GENERATORS)(rng)
+
+        # Struct expression with 50% chance of including inner transformation
+        if rng.random() < 0.5:
+            structured_code = f"struct ({mask}) ({inner} ({base}))"
+        else:
+            structured_code = f"struct ({mask}) ({base})"
+
+        # Parse back into a PatternTree
+        return pattern_tree_from_string(structured_code)
+
+    return op
+
+
+def append_op_factory(
+    *, 
+    use_target: bool = False, 
+    min_length: int = 10, 
+    max_examples: int = 500, 
+    use_tree_metrics: bool = True
+) -> MutationOp:
+    """
+    Mutation operator that creates a new pattern by appending a randomly generated pattern.
+    Either "append" or "fastAppend" combinator is used (with randomized argument order), where:
+        "append" combines two patterns sequentially.
+        "fastAppend" combines two patterns by interleaving their events.
+
+    Produces patterns like:
+        append (basePattern) (newPattern)
+        fastAppend (newPattern) (basePattern)
+    """
+
+    # Unused config parameters kept intentionally
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code
+        base_code = to_tidal(tree)
+
+        # Generate 1–3-depth new branch
+        new_branch_tree = generate_expressions(rng.randint(1, 3))[0]
+        new_branch_code = to_tidal(new_branch_tree)
+
+        # Choose combinator
+        combinator = "append" if rng.random() < 0.5 else "fastAppend"
+
+        # Randomize argument order
+        if rng.random() < 0.5:
+            appended_code = f"{combinator} ({base_code}) ({new_branch_code})"
+        else:
+            appended_code = f"{combinator} ({new_branch_code}) ({base_code})"
+
+        # Parse back into a PatternTree
+        return pattern_tree_from_string(appended_code)
+
+    return op
+
+# Inner transformations that can be applied within the "euclid" operator
+EUCLID_TRANSFORMS = [
+    "",          # No transformation
+    "rev $",     # Reverses the pattern in time
+    "fast 2 $",  # Plays the pattern twice as fast
+    "slow 2 $",  # Plays the pattern at half speed
+    "iter 2 $",  # Iterates pattern twice within the same cycle
+]
+
+def euclid_op_factory(
+    *, 
+    use_target: bool = False, 
+    min_length: int = 10, 
+    max_examples: int = 500, 
+    use_tree_metrics: bool = True
+) -> MutationOp:
+    """
+    Mutation operator that wraps an existing pattern inside a Tidal "euclid" expression.
+
+    Produces patterns like:
+        euclid 5 16 (basePattern)
+        rev $ (euclid 3 8 (basePattern))
+    """
+    # Unused config parameters kept intentionally
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code
+        base_code = to_tidal(tree)
+
+        # Choose pulses and steps
+        step_choices = [8, 12, 16, 24, 32]
+        steps = rng.choice(step_choices)
+        pulses = rng.randint(1, steps)
+
+        # Choose transformation
+        transform = rng.choice(EUCLID_TRANSFORMS)
+
+        # Build final euclid expression (if transform is empty, no transformation is applied)
+        if transform == "":
+            euclid_code = f"euclid {pulses} {steps} ({base_code})"
+        else:
+            euclid_code = f"{transform} (euclid {pulses} {steps} ({base_code}))"
+
+        # Parse back into a PatternTree
+        return pattern_tree_from_string(euclid_code)
+
+    return op
 
 _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     "subtree_replace": _subtree_replace_op_factory,
     "stack_wrap": _stack_wrap_op_factory,
+    "struct": _struct_op_factory,
+    "append": append_op_factory,
+    "euclid": euclid_op_factory,
 }
-
 
 def mutate_pattern_tree(
     tree: PatternTree,
@@ -592,7 +739,6 @@ def mutate_pattern_tree(
 
     op = rng.choice(ops)
     return op(tree, rng)
-
 
 # ---------------------------------------------------------------------------
 # Public API
