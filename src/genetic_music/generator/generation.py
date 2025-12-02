@@ -757,6 +757,77 @@ def _note_wrap_op_factory(
     
     return op
 
+
+def speed_op_factory(
+    *,
+    use_target: bool = False,
+    min_length: int = 10,
+    max_examples: int = 500,
+    use_tree_metrics: bool = True
+) -> MutationOp:
+    """
+    Mutation operator that applies a speed transformation (fast or slow) to the pattern.
+
+    Produces patterns like:
+        fast 2 $ (basePattern)
+        slow 0.5 $ (basePattern)
+    """
+    # Unused config parameters kept intentionally
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code
+        base_code = to_tidal(tree)
+
+        # Choose fast or slow
+        op_name = rng.choice(["fast", "slow"])
+
+        # Choose factor from sensible values
+        factors = [0.5, 1.5, 2, 3]
+        factor = rng.choice(factors)
+
+        # Build speed expression
+        speed_code = f"{op_name} {factor} $ ({base_code})"
+
+        # Parse back into a PatternTree
+        return pattern_tree_from_string(speed_code)
+
+    return op
+
+
+def striate_op_factory(
+    *,
+    use_target: bool = False,
+    min_length: int = 10,
+    max_examples: int = 500,
+    use_tree_metrics: bool = True
+) -> MutationOp:
+    """
+    Mutation operator that applies striate to create a stutter/layering effect.
+
+    Produces patterns like:
+        striate 3 $ (basePattern)
+    """
+    # Unused config parameters kept intentionally
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code
+        base_code = to_tidal(tree)
+
+        # Choose n from 2 to 6
+        n_values = [2, 3, 4, 5, 6]
+        n = rng.choice(n_values)
+
+        # Build striate expression
+        striate_code = f"striate {n} $ ({base_code})"
+
+        # Parse back into a PatternTree
+        return pattern_tree_from_string(striate_code)
+
+    return op
+
+
 _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     "subtree_replace": _subtree_replace_op_factory,
     "stack_wrap": _stack_wrap_op_factory,
@@ -765,6 +836,8 @@ _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     "euclid": euclid_op_factory,
     "scale_wrap": _scale_wrap_op_factory,
     "note_wrap": _note_wrap_op_factory,
+    "speed": speed_op_factory,
+    "striate": striate_op_factory,
 }
 
 def mutate_pattern_tree(
