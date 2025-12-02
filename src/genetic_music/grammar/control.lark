@@ -65,6 +65,7 @@ cp_infix_op: OP_HASH
 ?cp_playable_term: "(" control_pattern ")"                 // grouping keeps playability
                  | prefix_cp "(" cp_playable_term ")"      // safe prefix transforms
                  | cp_sound_atom                           // direct constructors with sound
+                 | cp_note_atom 
                  // Named binary combinators: both sides must be playable to avoid
                  // musically-empty overlays.
                  // This keeps the whole expression playable and ensures every overlay
@@ -80,6 +81,10 @@ cp_infix_op: OP_HASH
                  | cp_euclid_playable
                  | cp_timeops_playable
                  | cp_lists_playable
+
+// Note-producing constructors (introduce pitch information)
+cp_note_atom: note_to_cp "(" pattern_note ")"
+            | note_to_cp STRING 
 
 // ---------- Control-only terms ----------
 // These can be pure-control (no sound) and only appear as children of playable forms.
@@ -116,7 +121,6 @@ cp_control_constructor: ("pS"    param_name "(" pattern_string ")")
                       // Demoted to control-only (effects/filters, not sources)
                       | ("vowel" "(" pattern_vowel_string ")")
                       | (double_to_cp   "(" pattern_double ")")
-                      | (note_to_cp     "(" pattern_note ")")
                       | (int_to_cp      "(" pattern_int ")")
 
 // A conservative but fairly complete Double→CP menu
@@ -126,7 +130,7 @@ double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
             | "delay" | "delaytime" | "delayfeedback"
             | "hcutoff" | "hresonance" | "resonance" | "coarse"
 
-note_to_cp:  "up" | "n" | "note"
+note_to_cp:   "n" | "note" | "up"
 int_to_cp:   "cut"
 
 // ---------- Named binary CP combinators ----------

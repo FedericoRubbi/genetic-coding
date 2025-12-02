@@ -682,12 +682,89 @@ def euclid_op_factory(
 
     return op
 
+def _scale_wrap_op_factory(
+    *,
+    use_target: bool,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
+) -> MutationOp:
+    """Factory for a scale-based mutation operator."""
+     
+    SCALE_NAMES = ["major", "minor", "dorian", "ritusen"]
+    INT_PATTERNS = ["0", "0 2 4", "0 .. 7"]
+    SOUNDS = ["bd", "sn", "hh", "cp", "tabla", "arpy"]
+    
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        base_code = to_tidal(tree)
+        scale_name = rng.choice(SCALE_NAMES)
+        int_pattern = rng.choice(INT_PATTERNS)
+        sound = rng.choice(SOUNDS)
+        
+        # Generate complete pattern with sound
+        pattern_code = f'{base_code}#n(scale"{scale_name}""{int_pattern}")#s("{sound}")'
+        
+        return pattern_tree_from_string(pattern_code)
+    
+    return op
+
+def _note_wrap_op_factory(
+    *,
+    use_target: bool,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
+) -> MutationOp:
+    """Factory for a note-based mutation operator.
+    
+    Creates ControlPatterns using n/note with simple note patterns.
+    """
+    
+    NOTE_FUNCTIONS = ["n", "note"]
+    
+    # Note patterns (as strings) - these are the degrees/semitones
+    NOTE_PATTERNS = [
+        "0", "0 7", "0 4 7", "0 2 4 5 7 9 11", 
+        "0 .. 11", "-12 .. 12", "24 36 48",
+        "60", "60 64 67", "0.5", "1.5" 
+    ]
+    
+    # Sound patterns to combine with
+    SOUNDS = ["bd", "sn", "hh", "cp", "tabla", "arpy"]
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+       
+        # Get the existing pattern
+        base_code = to_tidal(tree)
+        
+        # Choose components
+        note_func = rng.choice(NOTE_FUNCTIONS)
+        note_pattern = rng.choice(NOTE_PATTERNS)
+        sound = rng.choice(SOUNDS)
+        
+        # Check if base_code already has sound
+        # Simple heuristic - if it contains 'sound' or 's ', assume it has sound
+        has_sound = ('sound' in base_code) or ('s ' in base_code)
+        
+        if has_sound:
+            # Overlay note pattern on existing sound
+            pattern_code = f'{base_code}#{note_func}"{note_pattern}"'
+        else:
+            # Add both note and sound to base pattern
+            pattern_code = f'{base_code}#{note_func}"{note_pattern}"#s("{sound}")'
+        
+        return pattern_tree_from_string(pattern_code)
+    
+    return op
+
 _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     "subtree_replace": _subtree_replace_op_factory,
     "stack_wrap": _stack_wrap_op_factory,
     "struct": _struct_op_factory,
     "append": append_op_factory,
     "euclid": euclid_op_factory,
+    "scale_wrap": _scale_wrap_op_factory,
+    "note_wrap": _note_wrap_op_factory,
 }
 
 def mutate_pattern_tree(

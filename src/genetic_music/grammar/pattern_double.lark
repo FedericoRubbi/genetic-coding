@@ -9,7 +9,7 @@
 // If you prefer, you can merge these changes back into your main
 // pattern_double.lark; kept separate here for clarity.
 
-%import .tokens (INT, DOUBLE, SILENCE)
+%import .tokens (INT, DOUBLE, SILENCE, STRING)
 %import .tokens (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
 %import .tokens (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
 %import .tokens (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
@@ -38,6 +38,7 @@ double_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 
 // ---------- Constructors / literals ----------
 ?double_constructor: double_literal
+                   | double_string_literal
                    | waves_ctor
                    | env_ctor
                    | cf_ctor           // cF_* bus readers
@@ -47,6 +48,7 @@ double_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 
 // Numeric literals (allow INT to coerce to Double surface)
 double_literal: DOUBLE | INT | SILENCE
+double_string_literal: STRING
 // Common oscillators
 env_ctor:   ("envEq" | "envEqR" | "envL" | "envLR")
 

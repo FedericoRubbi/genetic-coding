@@ -5,7 +5,7 @@
 // arguments from pattern_time.lark (for time-parameterised transforms
 // and time-based concatenation).
 
-%import .tokens (INT, DOUBLE, BOOL, STRING, SILENCE)
+%import .tokens (INT, DOUBLE, BOOL, STRING, SILENCE) 
 %import .tokens (OP_POW_BOTH, OP_POW_RIGHT, OP_POW_LEFT)
 %import .tokens (OP_MUL_BOTH, OP_MUL_RIGHT, OP_MUL_LEFT)
 %import .tokens (OP_DIV_BOTH, OP_DIV_RIGHT, OP_DIV_LEFT)
@@ -37,11 +37,15 @@ int_infix_op: OP_HASH
 
 // ---------- Constructors / literals ----------
 ?int_constructor: int_literal
+                | int_string_literal  // Allows string patterns like "0 2 4"
                 | run_ctor
                 | int_list_to_pat
                 | int_timecat
 
 int_literal: INT | SILENCE
+
+// Allows string patterns for integers
+int_string_literal: STRING
 
 // Explicit, typed constructors (deterministic only; drop irand)
 run_ctor:   "run"   int_arg          // 0..n-1
