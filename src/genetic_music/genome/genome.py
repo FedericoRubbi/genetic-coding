@@ -43,17 +43,26 @@ class Genome:
         underlying :class:`PatternTree`.  If mutation is not applied, or if the
         operator makes no structural change, a structurally identical copy of
         this genome is returned.
+
+        Args:
+            rate: Probability of applying mutation.
+            use_target: Whether to use target pattern information during
+                mutation.
+            min_length: Minimum length of generated patterns.
+            max_examples: Maximum number of examples to consider during mutation.
+            use_tree_metrics: Whether to use tree metrics during mutation.
+            mutation_kinds: Sequence of mutation operator kinds to consider. If
+                ``None``, all available mutation operators are used. If not 
+                ``None``, only the specified mutation operators are considered. Check
+                the documentation of ``mutate_pattern_tree`` for valid kinds.
         """
         # Decide whether to mutate this genome at all.
         if random.random() > rate:
             return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness)
 
-        if mutation_kinds is None:
-            mutation_kinds = ("subtree_replace",)
-
         mutated_tree = mutate_pattern_tree(
             self.pattern_tree,
-            mutation_kinds=mutation_kinds,
+            mutation_kinds=mutation_kinds, # by default all mutation kinds
             use_target=use_target,
             min_length=min_length,
             max_examples=max_examples,

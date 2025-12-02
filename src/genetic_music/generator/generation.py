@@ -544,9 +544,11 @@ STRUCT_INNERS = [
 # Functions used to create valid "mask" patterns for the "struct" operator, that define when events are allowed to occur
 MASK_GENERATORS = [
     # Boolean mask t(a,b): a pulses across b positions
-    lambda rng: f"t({rng.randint(2,8)},{rng.choice([8,12,16])})",
-    # Binary string mask (e.g: "1011001")
-    lambda rng: '"' + "".join(rng.choice(['0','1']) for _ in range(rng.randint(4,16))) + '"'
+    # lambda rng: f"t({rng.randint(2,8)},{rng.choice([8,12,16])})",  # Not implemented in grammar yet
+    # Boolean string mask (e.g: "t f t f f t t f f")
+    lambda rng: '"' + " ".join(rng.choice(['t','f']) for _ in range(rng.randint(4,16))) + '"'
+    # Binary number mask (e.g: "1 0 1 1 0 0 1")
+    # lambda rng: '"' + " ".join(rng.choice(['0','1']) for _ in range(rng.randint(4,16))) + '"'  # Not implemented in grammar yet
 ]
 
 def _struct_op_factory(
@@ -636,10 +638,10 @@ def append_op_factory(
 # Inner transformations that can be applied within the "euclid" operator
 EUCLID_TRANSFORMS = [
     "",          # No transformation
-    "rev $",     # Reverses the pattern in time
-    "fast 2 $",  # Plays the pattern twice as fast
-    "slow 2 $",  # Plays the pattern at half speed
-    "iter 2 $",  # Iterates pattern twice within the same cycle
+    "rev",     # Reverses the pattern in time
+    "fast 2",  # Plays the pattern twice as fast
+    "slow 2",  # Plays the pattern at half speed
+    "iter 2",  # Iterates pattern twice within the same cycle
 ]
 
 def euclid_op_factory(
@@ -673,9 +675,9 @@ def euclid_op_factory(
 
         # Build final euclid expression (if transform is empty, no transformation is applied)
         if transform == "":
-            euclid_code = f"euclid {pulses} {steps} ({base_code})"
+            euclid_code = f"euclid ({pulses}) ({steps}) ({base_code})"
         else:
-            euclid_code = f"{transform} (euclid {pulses} {steps} ({base_code}))"
+            euclid_code = f"{transform} (euclid ({pulses}) ({steps}) ({base_code}))"
 
         # Parse back into a PatternTree
         return pattern_tree_from_string(euclid_code)
@@ -702,7 +704,7 @@ def _scale_wrap_op_factory(
         sound = rng.choice(SOUNDS)
         
         # Generate complete pattern with sound
-        pattern_code = f'{base_code}#n(scale"{scale_name}""{int_pattern}")#s("{sound}")'
+        pattern_code = f'{base_code} # n(scale "{scale_name}" "{int_pattern}") # s("{sound}")'
         
         return pattern_tree_from_string(pattern_code)
     
@@ -748,10 +750,10 @@ def _note_wrap_op_factory(
         
         if has_sound:
             # Overlay note pattern on existing sound
-            pattern_code = f'{base_code}#{note_func}"{note_pattern}"'
+            pattern_code = f'{base_code} # {note_func} "{note_pattern}"'
         else:
             # Add both note and sound to base pattern
-            pattern_code = f'{base_code}#{note_func}"{note_pattern}"#s("{sound}")'
+            pattern_code = f'{base_code} # {note_func} "{note_pattern}" # s("{sound}")'
         
         return pattern_tree_from_string(pattern_code)
     
@@ -770,7 +772,7 @@ _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
 def mutate_pattern_tree(
     tree: PatternTree,
     *,
-    mutation_kinds: Sequence[str] = ("subtree_replace",),
+    mutation_kinds: Sequence[str] = None,
     use_target: bool = False,
     min_length: int = 10,
     max_examples: int = 500,
@@ -797,7 +799,7 @@ def mutate_pattern_tree(
         rng = random
 
     if not mutation_kinds:
-        mutation_kinds = ("subtree_replace",)
+        mutation_kinds = list(_MUTATION_OPERATOR_FACTORIES.keys())
 
     # Instantiate operator implementations with the given configuration.
     ops: List[MutationOp] = []
