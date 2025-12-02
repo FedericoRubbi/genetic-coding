@@ -592,6 +592,36 @@ def _struct_op_factory(
     return op
 
 
+def _overlay_wrap_op_factory(
+    *,
+    use_target: bool,
+    min_length: int,
+    max_examples: int,
+    use_tree_metrics: bool,
+) -> MutationOp:
+
+    # The config knobs are currently unused but kept for a consistent interface
+    # and future experimentation (e.g. using targeted generation for the new
+    # branch).
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Convert the existing pattern to Tidal code.
+        base_code = to_tidal(tree)
+
+        # Generate a fresh playable pattern for the second branch.
+        new_branch_trees = generate_expressions(1)
+        new_branch_code = to_tidal(new_branch_trees[0])
+
+        # Build a overlay expression: overlay [base, new]
+        overlay_code = f"overlay({base_code} {new_branch_code})"
+
+        # Parse back into a PatternTree.
+        return pattern_tree_from_string(overlay_code)
+
+    return op
+
+
 def append_op_factory(
     *, 
     use_target: bool = False, 
@@ -763,6 +793,7 @@ _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     "subtree_replace": _subtree_replace_op_factory,
     "stack_wrap": _stack_wrap_op_factory,
     "struct": _struct_op_factory,
+    "overlay_wrap": _overlay_wrap_op_factory,
     "append": append_op_factory,
     "euclid": euclid_op_factory,
     "scale_wrap": _scale_wrap_op_factory,
