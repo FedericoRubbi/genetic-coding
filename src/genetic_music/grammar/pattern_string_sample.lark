@@ -37,14 +37,14 @@ sample_literal: SAMPLE_STRING | SILENCE
 // ---------- Lists and list-based combinators (deterministic only) ----------
 sample_list: "[" [pattern_sample_string ("," pattern_sample_string)*] "]"
 
-sample_list_to_pat: ("listToPat"
+!sample_list_to_pat: ("listToPat"
                    | "stack" | "cat" | "fastcat" | "fastCat"
                    | "slowcat" | "slowCat") sample_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern SampleString) pairs ----------
 sample_time_pair: "(" pattern_time "," pattern_sample_string ")"
 sample_time_pair_list: sample_time_pair ("," sample_time_pair)*
-sample_timecat: ("timeCat" | "timecat") "[" sample_time_pair_list "]"
+!sample_timecat: ("timeCat" | "timecat") "[" sample_time_pair_list "]"
 
 // ---------- sseq variants restricted to domain atoms ----------
 sseq_sample_ctor:         "sseq"  SAMPLE_STRING DELIM_STRING

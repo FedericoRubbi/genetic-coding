@@ -109,11 +109,11 @@ cp_note_atom: note_to_cp "(" pattern_note ")"
 
 // Audio-producing constructors (introduce sound)
 // Only 's' and 'sound' are true sound sources. 'vowel' is a filter effect, not a source.
-cp_sound_atom: ("s"     "(" pattern_sample_string ")") // String → CP (domain-typed)
+!cp_sound_atom: ("s"     "(" pattern_sample_string ")") // String → CP (domain-typed)
     | ("sound" "(" pattern_sample_string ")")
 
 // Pure-control constructors (no direct audio)
-cp_control_constructor: ("pS"    param_name "(" pattern_string ")")
+!cp_control_constructor: ("pS"    param_name "(" pattern_string ")")
       // Named-parameter setters (domain-typed names)
     | ("pF"    param_name "(" pattern_double ")")
     | ("pN"    param_name "(" pattern_note ")")
@@ -124,24 +124,24 @@ cp_control_constructor: ("pS"    param_name "(" pattern_string ")")
                       | (int_to_cp      "(" pattern_int ")")
 
 // A conservative but fairly complete Double→CP menu
-double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
+!double_to_cp: "speed" | "pan" | "gain" | "shape" | "cutoff" | "crush"
             | "nudge" | "overgain" | "overshape" | "accelerate"
             | "bandf" | "bandq" | "begin" | "end" | "loop" | "legato"
             | "delay" | "delaytime" | "delayfeedback"
             | "hcutoff" | "hresonance" | "resonance" | "coarse"
 
-note_to_cp:   "n" | "note" | "up"
-int_to_cp:   "cut"
+!note_to_cp:   "n" | "note" | "up"
+!int_to_cp:   "cut"
 
 // ---------- Named binary CP combinators ----------
-cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
+!cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
                | "fastAppend" | "fastappend" | "interlace"
 
 // ---------- Higher-order CP appliers ----------
 // Playable variants require a playable body; control variants can be pure control.
 // NOTE: Only deterministic functions are included. Random functions (sometimes, often, rarely,
 // almostNever, almostAlways, sometimesBy, someCycles, someCyclesBy) have been removed.
-?cp_applied_playable: "never"       transform_cp "(" cp_playable_term ")"
+!cp_applied_playable: "never"       transform_cp "(" cp_playable_term ")"
                     | "always"      transform_cp "(" cp_playable_term ")"
                     | "superimpose" transform_cp "(" cp_playable_term ")"
                     // First Pattern Int/Time arguments must be grouped for Haskell application
@@ -155,7 +155,7 @@ cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
                     | "chunk"        "(" pattern_int  ")"  transform_cp "(" cp_playable_term ")"
                     | "chunk'"       "(" pattern_int  ")" "(" pattern_int ")" transform_cp "(" cp_playable_term ")"
 
-?cp_applied_control: "never"       transform_cp "(" cp_control_only ")"
+!cp_applied_control: "never"       transform_cp "(" cp_control_only ")"
                    | "always"      transform_cp "(" cp_control_only ")"
                    | "superimpose" transform_cp "(" cp_control_only ")"
                    | "every"        "(" pattern_int    ")" transform_cp "(" cp_control_only ")"
@@ -169,14 +169,14 @@ cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
                    | "chunk'"       "(" pattern_int  ")" "(" pattern_int ")" transform_cp "(" cp_control_only ")"
 
 // ---------- Jux family ----------
-?cp_jux_playable: "jux"     transform_cp "(" cp_playable_term ")"
+!cp_jux_playable: "jux"     transform_cp "(" cp_playable_term ")"
                 | "juxcut"  transform_cp "(" cp_playable_term ")"
                 | "jux4"    transform_cp "(" cp_playable_term ")"
                 | "jux'"    transform_cp_list "(" cp_playable_term ")"
                 | "juxcut'" transform_cp_list "(" cp_playable_term ")"
                 | "juxBy"   "(" pattern_double ")" transform_cp "(" cp_playable_term ")"
 
-?cp_jux_control: "jux"     transform_cp "(" cp_control_only ")"
+!cp_jux_control: "jux"     transform_cp "(" cp_control_only ")"
                | "juxcut"  transform_cp "(" cp_control_only ")"
                | "jux4"    transform_cp "(" cp_control_only ")"
                | "jux'"    transform_cp_list "(" cp_control_only ")"
@@ -186,55 +186,55 @@ cp_binary_named: "overlay" | "append" | "slowAppend" | "slowappend"
 transform_cp_list: "[" [transform_cp ("," transform_cp)*] "]"
 
 // ---------- Rhythmic slicers ----------
-cp_slice_playable: ("slice" | "splice" | "chew" | "bite") "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")"
-cp_slice_control:  ("slice" | "splice" | "chew" | "bite") "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")"
+!cp_slice_playable: ("slice" | "splice" | "chew" | "bite") "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")"
+!cp_slice_control:  ("slice" | "splice" | "chew" | "bite") "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")"
 
-cp_chop_playable:  ("chop" | "gap" | "spin") "(" pattern_int ")" "(" cp_playable_term ")"
-cp_chop_control:   ("chop" | "gap" | "spin") "(" pattern_int ")" "(" cp_control_only ")"
+!cp_chop_playable:  ("chop" | "gap" | "spin") "(" pattern_int ")" "(" cp_playable_term ")"
+!cp_chop_control:   ("chop" | "gap" | "spin") "(" pattern_int ")" "(" cp_control_only ")"
 
 // ---------- Mask / struct ----------
-cp_mask_playable: ("mask" | "struct" | "substruct") "(" pattern_bool ")" "(" cp_playable_term ")"
-cp_mask_control:  ("mask" | "struct" | "substruct") "(" pattern_bool ")" "(" cp_control_only ")"
+!cp_mask_playable: ("mask" | "struct" | "substruct") "(" pattern_bool ")" "(" cp_playable_term ")"
+!cp_mask_control:  ("mask" | "struct" | "substruct") "(" pattern_bool ")" "(" cp_control_only ")"
 
 // ---------- Striate / Euclid ----------
-cp_striate_playable: ("striate"   "(" pattern_int ")" "(" cp_playable_term ")")
+!cp_striate_playable: ("striate"   "(" pattern_int ")" "(" cp_playable_term ")")
                    | ("striate'"  "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")")
                    | ("striateBy" "(" pattern_int ")" "(" pattern_double ")" "(" cp_playable_term ")")
 
-cp_striate_control: ("striate"   "(" pattern_int ")" "(" cp_control_only ")")
+!cp_striate_control: ("striate"   "(" pattern_int ")" "(" cp_control_only ")")
                   | ("striate'"  "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")")
                   | ("striateBy" "(" pattern_int ")" "(" pattern_double ")" "(" cp_control_only ")")
 
-cp_euclid_playable: ("euclid"     "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")")
+!cp_euclid_playable: ("euclid"     "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")")
                    | ("euclidInv" "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")")
                    | ("euclidFull" "(" pattern_int ")" "(" pattern_int ")" "(" cp_playable_term ")" "(" cp_any ")")
                    | ("euclidFull" "(" pattern_int ")" "(" pattern_int ")" "(" cp_any ")" "(" cp_playable_term ")")
 
-cp_euclid_control: ("euclid"     "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")")
+!cp_euclid_control: ("euclid"     "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")")
                   | ("euclidInv" "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")")
                   | ("euclidFull" "(" pattern_int ")" "(" pattern_int ")" "(" cp_control_only ")" "(" cp_control_only ")")
 
 // ---------- Time operations on CP ----------
-cp_timeops_playable: ("hurry"    "(" pattern_time ")" "(" cp_playable_term ")")
+!cp_timeops_playable: ("hurry"    "(" pattern_time ")" "(" cp_playable_term ")")
                    | ("loopAt"   "(" pattern_time ")" "(" cp_playable_term ")")
                    | ("rolledBy" "(" pattern_time ")" "(" cp_playable_term ")")
 
-cp_timeops_control: ("hurry"    "(" pattern_time ")" "(" cp_control_only ")")
+!cp_timeops_control: ("hurry"    "(" pattern_time ")" "(" cp_control_only ")")
                   | ("loopAt"   "(" pattern_time ")" "(" cp_control_only ")")
                   | ("rolledBy" "(" pattern_time ")" "(" cp_control_only ")")
 
 // ---------- Lists of CP and list-based combinators (deterministic only) ----------
 // Playable lists: first element must be playable, so list as a whole contains sound.
 cp_list_playable: "[" cp_playable_term ("," cp_any)* "]"
-cp_lists_playable: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat") cp_list_playable
+!cp_lists_playable: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat") cp_list_playable
 
 // Control-only lists: all elements are control_only; these never become a full control_pattern.
 cp_list_control: "[" cp_control_only ("," cp_control_only)* "]"
-cp_lists_control: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat") cp_list_control
+!cp_lists_control: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCat") cp_list_control
 
 // ---------- Prefix transforms (ControlPattern -> ControlPattern) ----------
 // NOTE: Random functions (degrade, ghost) have been removed for deterministic patterns.
-?prefix_cp: "rev"
+!prefix_cp: "rev"
           | "brak"
           | "palindrome"
           | "fast" time_arg
@@ -265,7 +265,7 @@ cp_lists_control: ("stack" | "cat" | "fastcat" | "fastCat" | "slowcat" | "slowCa
 
 // ---------- Transform values (ControlPattern -> ControlPattern) ----------
 // NOTE: Random functions (degrade, ghost) have been removed for deterministic patterns.
-?transform_cp: "rev"
+!transform_cp: "rev"
              | "brak"
              | "palindrome"
              | "fast" time_arg

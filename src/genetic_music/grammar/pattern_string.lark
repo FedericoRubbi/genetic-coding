@@ -50,7 +50,7 @@ samples_ctor: "samples" pattern_string pattern_int
 // ---------- Lists and list-based combinators (deterministic only) ----------
 string_list: "[" [pattern_string ("," pattern_string)*] "]"
 
-string_list_to_pat: ("listToPat"
+!string_list_to_pat: ("listToPat"
                    | "stack" | "cat" | "fastcat" | "fastCat"
                    | "slowcat" | "slowCat") string_list
 
@@ -60,10 +60,10 @@ select_ctor: "select" pattern_double string_list
 // ---------- timeCat/timecat: list of (Time, Pattern String) pairs ----------
 str_time_pair: "(" pattern_time "," pattern_string ")"
 str_time_pair_list: str_time_pair ("," str_time_pair)*
-string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
+!string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
 
 // ---------- Prefix transforms (Pattern String -> Pattern String) ----------
-?prefix_string: "rev"
+!prefix_string: "rev"
               | "brak"
               | "palindrome"
               | "fast" time_arg
@@ -90,7 +90,7 @@ string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
               | "playFor" time_arg
 
 // ---------- Transform values (Pattern String -> Pattern String) ----------
-?transform_string: "rev"
+!transform_string: "rev"
                  | "brak"
                  | "palindrome"
                  | "fast" time_arg

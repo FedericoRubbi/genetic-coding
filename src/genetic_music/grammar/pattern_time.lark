@@ -49,21 +49,21 @@ time_literal: INT
  time_list: "[" [pattern_time ("," pattern_time)*] "]"
 
 // Constructors from a list to a Pattern Time (deterministic only)
- time_list_to_pat: ("listToPat" | "stack" | "cat"
+ !time_list_to_pat: ("listToPat" | "stack" | "cat"
                   | "fastcat" | "fastCat"
                   | "slowcat" | "slowCat") time_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Time) pairs ----------
  time_pair: "(" pattern_time "," pattern_time ")"
  time_pair_list: time_pair ("," time_pair)*
- time_cat: ("timeCat" | "timecat") "[" time_pair_list "]"
+ !time_cat: ("timeCat" | "timecat") "[" time_pair_list "]"
 
 // ---------- Prefix transforms (Pattern Time -> Pattern Time) ----------
 // Keep this list self-contained (no cross-sort references). When a transform
 // requires a parameter of type Time, we accept a Time argument formed by
 // INT/DOUBLE or a grouped pattern_time. When a transform wants Int counts,
 // we conservatively accept INT.
-?prefix_time: "rev"
+!prefix_time: "rev"
             | "brak"
             | "palindrome"
             | "fast" time_arg
@@ -93,7 +93,7 @@ time_literal: INT
 // A transform_time denotes a function value of type
 //   (Pattern Time -> Pattern Time)
 // It mirrors the prefix_time repertoire but WITHOUT the subject term.
-?transform_time: "rev"
+!transform_time: "rev"
                | "brak"
                | "palindrome"
                | "fast" time_arg

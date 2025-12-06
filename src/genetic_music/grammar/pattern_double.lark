@@ -50,9 +50,9 @@ double_infix_op: OP_POW_BOTH | OP_POW_RIGHT | OP_POW_LEFT
 double_literal: DOUBLE | INT | SILENCE
 double_string_literal: STRING
 // Common oscillators
-env_ctor:   ("envEq" | "envEqR" | "envL" | "envLR")
+!env_ctor:   ("envEq" | "envEqR" | "envL" | "envLR")
 
-waves_ctor: ("sine" | "saw" | "isaw" | "tri" | "square" | "cosine")
+!waves_ctor: ("sine" | "saw" | "isaw" | "tri" | "square" | "cosine")
 
 // ---- STRICT: control-bus name domain ----
 bus_name: BUS_STRING
@@ -64,7 +64,7 @@ bus_name: BUS_STRING
 // We therefore restrict the first argument to numeric literals only.
 cf_scalar: DOUBLE | INT
 
-cf_ctor:  "cF_" bus_name
+!cf_ctor:  "cF_" bus_name
         | "cF0" bus_name
         | "cF"  cf_scalar bus_name
 
@@ -78,17 +78,17 @@ scale_ctor: "scale" SCALE_STRING pattern_int
 // ---------- Lists and list-based combinators (deterministic only) ----------
 double_list: "[" [pattern_double ("," pattern_double)*] "]"
 
-double_list_to_pat: ("listToPat"
+!double_list_to_pat: ("listToPat"
                    | "stack" | "cat" | "fastcat" | "fastCat"
                    | "slowcat" | "slowCat") double_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Double) pairs ----------
 double_time_pair: "(" pattern_time "," pattern_double ")"
 double_time_pair_list: double_time_pair ("," double_time_pair)*
-double_timecat: ("timeCat" | "timecat") "[" double_time_pair_list "]"
+!double_timecat: ("timeCat" | "timecat") "[" double_time_pair_list "]"
 
 // ---------- Prefix transforms (Pattern Double -> Pattern Double) ----------
-?prefix_double: "rev"
+!prefix_double: "rev"
               | "brak"
               | "palindrome"
               | "fast" time_arg
@@ -125,7 +125,7 @@ quantise_ctor: "quantise" cf_scalar double_arg
 rangex_ctor:   "rangex"   double_arg double_arg
 
 // ---------- Transform values (Pattern Double -> Pattern Double) ----------
-?transform_double: "rev"
+!transform_double: "rev"
                  | "brak"
                  | "palindrome"
                  | "fast" time_arg

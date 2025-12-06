@@ -35,14 +35,14 @@ scale_literal: SCALE_STRING | SILENCE
 // ---------- Lists and list-based combinators (deterministic only) ----------
 scale_list: "[" [pattern_scale_string ("," pattern_scale_string)*] "]"
 
-scale_list_to_pat: ("listToPat"
+!scale_list_to_pat: ("listToPat"
                   | "stack" | "cat" | "fastcat" | "fastCat"
                   | "slowcat" | "slowCat") scale_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern ScaleString) pairs ----------
 scale_time_pair: "(" pattern_time "," pattern_scale_string ")"
 scale_time_pair_list: scale_time_pair ("," scale_time_pair)*
-scale_timecat: ("timeCat" | "timecat") "[" scale_time_pair_list "]"
+!scale_timecat: ("timeCat" | "timecat") "[" scale_time_pair_list "]"
 
 // ---------- sseq variants restricted to domain atoms ----------
 sseq_scale_ctor:         "sseq"  SCALE_STRING DELIM_STRING

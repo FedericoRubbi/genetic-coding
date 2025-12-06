@@ -53,19 +53,19 @@ run_ctor:   "run"   int_arg          // 0..n-1
 // ---------- Lists and list-based combinators (deterministic only) ----------
 int_list: "[" [pattern_int ("," pattern_int)*] "]"
 
-int_list_to_pat: ("listToPat"
+!int_list_to_pat: ("listToPat"
                 | "stack" | "cat" | "fastcat" | "fastCat"
                 | "slowcat" | "slowCat") int_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Int) pairs ----------
 int_time_pair: "(" pattern_time "," pattern_int ")"
 int_time_pair_list: int_time_pair ("," int_time_pair)*
-int_timecat: ("timeCat" | "timecat") "[" int_time_pair_list "]"
+!int_timecat: ("timeCat" | "timecat") "[" int_time_pair_list "]"
 
 // ---------- Prefix transforms (Pattern Int -> Pattern Int) ----------
 // Mirrors the generic repertoire; restricted to arguments we have available
 // (Times via time_arg; counts as INT). Avoids cross-sort dependencies.
-?prefix_int: "rev"
+!prefix_int: "rev"
            | "brak"
            | "palindrome"
            | "fast" time_arg
@@ -93,7 +93,7 @@ int_timecat: ("timeCat" | "timecat") "[" int_time_pair_list "]"
 
 // ---------- Transform values (Pattern Int -> Pattern Int) ----------
 // For higher-order uses (e.g., jux' later), export a value-level transform set.
-?transform_int: "rev"
+!transform_int: "rev"
               | "brak"
               | "palindrome"
               | "fast" time_arg

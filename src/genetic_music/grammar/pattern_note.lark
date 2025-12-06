@@ -50,20 +50,20 @@ scale_ctor: "scale" pattern_scale_string pattern_int
 // ---------- Lists and list-based combinators (deterministic only) ----------
 note_list: "[" [pattern_note ("," pattern_note)*] "]"
 
-note_list_to_pat: ("listToPat"
+!note_list_to_pat: ("listToPat"
                  | "stack" | "cat" | "fastcat" | "fastCat"
                  | "slowcat" | "slowCat") note_list
 
 // ---------- timeCat/timecat: list of (Time, Pattern Note) pairs ----------
 note_time_pair: "(" pattern_time "," pattern_note ")"
 note_time_pair_list: note_time_pair ("," note_time_pair)*
-note_timecat: ("timeCat" | "timecat") "[" note_time_pair_list "]"
+!note_timecat: ("timeCat" | "timecat") "[" note_time_pair_list "]"
 
 // ---------- select: Pattern Double -> [Pattern Note] -> Pattern Note ----------
 select_note_ctor: "select" pattern_double note_list
 
 // ---------- Prefix transforms (Pattern Note -> Pattern Note) ----------
-?prefix_note: "rev"
+!prefix_note: "rev"
             | "brak"
             | "palindrome"
             | "fast" time_arg
@@ -95,7 +95,7 @@ rangex_ctor: "rangex" note_scalar note_scalar
 note_scalar: INT | DOUBLE | "(" pattern_note ")"
 
 // ---------- Transform values (Pattern Note -> Pattern Note) ----------
-?transform_note: "rev"
+!transform_note: "rev"
                | "brak"
                | "palindrome"
                | "fast" time_arg
