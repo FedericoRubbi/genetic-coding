@@ -82,8 +82,8 @@ string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
               | "rotR" time_scalar
               | "rot" INT
               | "ply" time_arg
-              | OP_SHIFT_L time_arg
-              | OP_SHIFT_R time_arg
+              | "(" OP_SHIFT_L ")" time_arg
+              | "(" OP_SHIFT_R ")" time_arg
               | "compress" "(" time_arg "," time_arg ")"
               | "compressTo" "(" time_arg "," time_arg ")"
               | "zoom" "(" time_arg "," time_arg ")"
@@ -109,8 +109,8 @@ string_timecat: ("timeCat" | "timecat") "[" str_time_pair_list "]"
                  | "rotR" time_scalar
                  | "rot" INT
                  | "ply" time_arg
-                 | OP_SHIFT_L time_arg
-                 | OP_SHIFT_R time_arg
+                 | "(" OP_SHIFT_L ")" time_arg
+                 | "(" OP_SHIFT_R ")" time_arg
                  | "compress" "(" time_arg "," time_arg ")"
                  | "compressTo" "(" time_arg "," time_arg ")"
                  | "zoom" "(" time_arg "," time_arg ")"

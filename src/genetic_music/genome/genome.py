@@ -6,7 +6,11 @@ import random
 from dataclasses import dataclass
 from typing import Sequence, Tuple
 
-from genetic_music.generator.generation import mutate_pattern_tree
+from genetic_music.generator.generation import (
+    mutate_pattern_tree,
+    _iter_nodes_with_paths,
+    _clone_with_replacement,
+)
 from genetic_music.tree.pattern_tree import PatternTree
 
 
@@ -77,13 +81,52 @@ class Genome:
     def crossover(self, other: "Genome") -> Tuple["Genome", "Genome"]:
         """Perform crossover with another genome.
 
-        Tree crossover (subtree exchange) is not yet implemented; this method
-        currently returns unchanged copies of the parents to keep the API
-        stable for the evolutionary loop.
+        Finds all matching nodes (by .op) in both trees, randomly selects a pair,
+        and swaps their subtrees.
         """
-        return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness), Genome(
-            pattern_tree=other.pattern_tree,
-            fitness=other.fitness,
+        # Get all nodes with paths
+        nodes_self = _iter_nodes_with_paths(self.pattern_tree.root)
+        nodes_other = _iter_nodes_with_paths(other.pattern_tree.root)
+
+        # Group by op
+        ops_self = {}
+        for path, node in nodes_self:
+            if node.op not in ops_self:
+                ops_self[node.op] = []
+            ops_self[node.op].append((path, node))
+
+        ops_other = {}
+        for path, node in nodes_other:
+            if node.op not in ops_other:
+                ops_other[node.op] = []
+            ops_other[node.op].append((path, node))
+
+        # Find common ops
+        common_ops = list(set(ops_self.keys()) & set(ops_other.keys()))
+
+        if not common_ops:
+            # No matching ops, return clones
+            return Genome(pattern_tree=self.pattern_tree, fitness=self.fitness), Genome(
+                pattern_tree=other.pattern_tree,
+                fitness=other.fitness,
+            )
+
+        # Randomly choose an op and one node from each tree
+        chosen_op = random.choice(common_ops)
+        path_self, node_self = random.choice(ops_self[chosen_op])
+        path_other, node_other = random.choice(ops_other[chosen_op])
+
+        # Swap subtrees
+        # New self root: replace node at path_self with node_other
+        new_root_self = _clone_with_replacement(self.pattern_tree.root, path_self, node_other)
+
+        # New other root: replace node at path_other with node_self
+        new_root_other = _clone_with_replacement(other.pattern_tree.root, path_other, node_self)
+
+        # Return new Genomes
+        return (
+            Genome(pattern_tree=PatternTree(root=new_root_self), fitness=0.0),
+            Genome(pattern_tree=PatternTree(root=new_root_other), fitness=0.0),
         )
 
     def __repr__(self) -> str:

@@ -27,7 +27,7 @@ def _lark_to_treenode(node: LarkNode) -> TreeNode:
       type and ``value`` to the token value.
     """
     if isinstance(node, Tree):
-        children = [_lark_to_treenode(child) for child in node.children]
+        children = [_lark_to_treenode(child) for child in node.children if child is not None]
         return TreeNode(op=str(node.data), children=children)
 
     if isinstance(node, Token):
