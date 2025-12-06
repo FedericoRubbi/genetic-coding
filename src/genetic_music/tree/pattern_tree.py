@@ -9,6 +9,7 @@ operators and structural analysis (depth, size, etc.).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from lark.lexer import Token
 from typing import Any, Iterable, Union
 
 from lark import Lark, Tree, Token
@@ -106,14 +107,14 @@ class PatternTree:
         def _to_lark(node: TreeNode) -> LarkNode:
             # Internal nodes: always Trees with recursively converted children.
             if node.children:
-                return Tree(node.op, [_to_lark(child) for child in node.children])
+                return Tree[Token](node.op, [_to_lark(child) for child in node.children])
 
             # Leaf with a concrete value: this came from a Token.
             if node.value is not None:
                 return Token(node.op, node.value)
 
             # Leaf without a value: this was a rule leaf in the original tree.
-            return Tree(node.op, [])
+            return Tree[Any](node.op, [])
 
         return _to_lark(self.root)  # type: ignore[return-value]
 

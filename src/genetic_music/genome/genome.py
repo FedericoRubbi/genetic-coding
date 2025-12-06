@@ -33,7 +33,7 @@ class Genome:
 
     def mutate(
         self,
-        rate: float = 0.1,
+        rate: float = 1.0,
         *,
         use_target: bool = False,
         min_length: int = 1,
