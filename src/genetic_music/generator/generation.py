@@ -162,7 +162,31 @@ _BASE_EXPLICIT.update(
 
 _EXPLICIT = _make_explicit(_GEN_PARSER, _BASE_EXPLICIT)
 
-_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()"
+# ---------------------------------------------------------------------------
+# Shared finite musical value pools for mutation operators
+# ---------------------------------------------------------------------------
+
+_SOUND_POOL = ["bd", "sn", "hh", "cp", "tabla", "arpy"]
+
+_NOTE_PATTERN_POOL = [
+    "0",
+    "0 7",
+    "0 4 7",
+    "0 2 4 5 7 9 11",
+    "0 .. 11",
+    "-12 .. 12",
+    "24 36 48",
+    "60",
+    "60 64 67",
+    "0.5",
+    "1.5",
+]
+
+_SCALE_NAME_POOL = ["major", "minor", "dorian", "ritusen"]
+
+_SCALE_INT_PATTERN_POOL = ["0", "0 2 4", "0 .. 7"]
+
+_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()[],.|*+/%#<>~{}:"
 _ALPHABET_STRATEGY = st.sampled_from(list(_ALPHABET))
 
 _CP_STRINGS = from_lark(
@@ -307,29 +331,39 @@ def _collect_targeted_subtrees_for_rule(
     )
     @given(s=strat)
     def _explore(s: str) -> None:
-        if not isinstance(s, str) or not s.strip():
-            return
-
-        if use_target:
-            target(float(len(s)), label="subtree_length")
-
-        if len(collected) >= n:
-            return
-
         try:
-            parsed = _MUTATION_PARSER.parse(s, start=rule_name)
-            ptree = PatternTree.from_lark_tree(parsed)
-        except Exception:
-            return
+            if not isinstance(s, str) or not s.strip():
+                return
 
-        if use_target and use_tree_metrics:
-            target(float(ptree.size()), label="subtree_size")
-            target(float(ptree.depth()), label="subtree_depth")
+            if use_target:
+                target(float(len(s)), label="subtree_length")
 
-        if len(s) >= min_length and len(collected) < n:
-            collected.append(ptree.root)
+            if len(collected) >= n:
+                return
 
-    _explore()
+            try:
+                parsed = _MUTATION_PARSER.parse(s, start=rule_name)
+                ptree = PatternTree.from_lark_tree(parsed)
+            except Exception as e:
+                print(f"Error parsing {s} for rule {rule_name}: {e}")
+                breakpoint()
+                return
+
+            if use_target and use_tree_metrics:
+                target(float(ptree.size()), label="subtree_size")
+                target(float(ptree.depth()), label="subtree_depth")
+
+            if len(s) >= min_length and len(collected) < n:
+                collected.append(ptree.root)
+
+        except Exception as e:
+            print(f"Error in _explore for rule {rule_name} with string {s}: {e}")
+            breakpoint()
+    try:
+        _explore()
+    except Exception as e:
+        print(f"Error running Hypothesis explore for rule {rule_name}: {e}")
+        breakpoint()
     return collected
 
 
@@ -517,29 +551,27 @@ def _stack_wrap_op_factory(
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code.
-        base_code = to_tidal(tree)
-
-        # Generate a fresh playable pattern for the second branch.
         new_branch_trees = generate_expressions(1)
-        new_branch_code = to_tidal(new_branch_trees[0])
 
-        # Build a stack expression: stack [base, new]
-        stacked_code = f"stack [{base_code}, {new_branch_code}]"
+        # Create the STACK token node
+        stack_token = TreeNode(op="STACK", value="stack")
+        
+        # Create the cp_list_playable node containing the two patterns
+        list_node = TreeNode(
+            op="control__cp_list_playable",
+            children=[tree.root, new_branch_trees[0].root]
+        )
+        
+        # Create the root cp_lists_playable node
+        root_node = TreeNode(
+            op="control__cp_lists_playable",
+            children=[stack_token, list_node]
+        )
 
-        # Parse back into a PatternTree.
-        return pattern_tree_from_string(stacked_code)
+        return PatternTree(root=root_node)
 
     return op
 
-# Inner transformations that can be applied within the "struct" operator
-STRUCT_INNERS = [
-    "rev",          # Reverses the pattern in time
-    "fast 2",       # Plays the pattern twice as fast
-    "slow 2",       # Plays the pattern at half speed
-    "iter 2",       # Iterates pattern twice within the same cycle
-    "degradeBy 0.2" # Probabilistically drops 20% of the events
-]
 
 # Functions used to create valid "mask" patterns for the "struct" operator, that define when events are allowed to occur
 MASK_GENERATORS = [
@@ -559,35 +591,71 @@ def _struct_op_factory(
         use_tree_metrics: bool,
     ) -> MutationOp:
     """
-    Mutation operator that wraps an existing pattern inside a Tidal "struct" expression, 
-    which applies a mask to control timing. Optionally applies a transformation.
+    Mutation operator that wraps an existing playable pattern inside a Tidal
+    ``struct`` expression, which applies a boolean mask to control timing.
 
-    Produces patterns like:
-        struct ("0101") (basePattern)
-        struct (t(3,8)) (rev (basePattern))
+    This implementation works **purely at the tree level**:
+
+      - It constructs the ``cp_mask_playable`` subtree directly using ``TreeNode``
+        instances, matching the canonical shape produced by parsing expressions
+        such as ``struct (\"t f\") (s(\"bd\"))`` with Lark.
+      - The inner pattern is the existing ``PatternTree.root`` (no additional
+        prefix transforms or textual round-trips).
+
+    The resulting root has the form::
+
+        control__cp_mask_playable
+          STRUCT \"struct\"
+          LPAR \"(\"
+          control__pattern_bool__bool_literal
+            control__pattern_bool__BOOL \"t f ...\"
+          RPAR \")\"
+          LPAR \"(\"
+          <original-playable-root>
+          RPAR \")\"
     """
 
-    # Unused config parameters kept intentionally
+    # Unused config parameters kept intentionally for future tuning
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code
-        base = to_tidal(tree)
+        # 1. Generate mask string (already quoted, e.g. "\"t f t f\"").
+        mask_str = rng.choice(MASK_GENERATORS)(rng)
 
-        # Choose inner transformation
-        inner = rng.choice(STRUCT_INNERS)
+        # 2. Build the pattern_bool subtree for the mask:
+        #       control__pattern_bool__bool_literal
+        #         control__pattern_bool__BOOL: "<mask_str>"
+        mask_node = TreeNode(
+            op="control__pattern_bool__bool_literal",
+            children=[
+                TreeNode(op="control__pattern_bool__BOOL", value=mask_str),
+            ],
+        )
 
-        # Generate a valid mask
-        mask = rng.choice(MASK_GENERATORS)(rng)
+        # 3. Use the existing tree root as the playable term.
+        #    Grammar (control.lark):
+        #        cp_mask_playable: ("mask" | "struct" | "substruct")
+        #                          "(" pattern_bool ")" "(" cp_playable_term ")"
+        #    In practice, `PatternTree.root` is already one of the cp_playable_term
+        #    variants (e.g. control__cp_sound_atom, control__cp_jux_playable, ...),
+        #    so we can embed it directly.
+        inner_playable = tree.root
 
-        # Struct expression with 50% chance of including inner transformation
-        if rng.random() < 0.5:
-            structured_code = f"struct ({mask}) ({inner} ({base}))"
-        else:
-            structured_code = f"struct ({mask}) ({base})"
+        # 4. Build the cp_mask_playable root node that wraps the existing pattern.
+        new_root = TreeNode(
+            op="control__cp_mask_playable",
+            children=[
+                TreeNode(op="STRUCT", value="struct"),
+                TreeNode(op="LPAR", value="("),
+                mask_node,
+                TreeNode(op="RPAR", value=")"),
+                TreeNode(op="LPAR", value="("),
+                inner_playable,
+                TreeNode(op="RPAR", value=")"),
+            ],
+        )
 
-        # Parse back into a PatternTree
-        return pattern_tree_from_string(structured_code)
+        return PatternTree(root=new_root)
 
     return op
 
@@ -599,6 +667,24 @@ def _overlay_wrap_op_factory(
     max_examples: int,
     use_tree_metrics: bool,
 ) -> MutationOp:
+    """
+    Factory for an overlay-based mutation operator.
+
+    This operator wraps the existing playable pattern and a freshly generated
+    playable pattern in an ``overlay`` combinator, constructed **purely at the
+    tree level**.  It builds the canonical `cp_playable_term` shape which, when
+    parsed from text like::
+
+        overlay (p1) (p2)
+
+    yields a `PatternTree` of the form:
+
+        control__cp_playable_term
+          control__cp_binary_named
+            OVERLAY \"overlay\"
+          <left-playable>
+          <right-playable>
+    """
 
     # The config knobs are currently unused but kept for a consistent interface
     # and future experimentation (e.g. using targeted generation for the new
@@ -606,23 +692,38 @@ def _overlay_wrap_op_factory(
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code.
-        base_code = to_tidal(tree)
+        # Existing playable branch is the current root subtree.
+        left_branch = tree.root
 
         # Generate a fresh playable pattern for the second branch.
-        new_branch_trees = generate_expressions(1)
-        new_branch_code = to_tidal(new_branch_trees[0])
+        new_branch_tree = generate_expressions(1)[0]
+        right_branch = new_branch_tree.root
 
-        # Build a overlay expression: overlay [base, new]
-        overlay_code = f"overlay({base_code} {new_branch_code})"
+        # Randomise argument order so we sometimes overlay base over new, and
+        # sometimes new over base.
+        if rng.random() < 0.5:
+            first, second = left_branch, right_branch
+        else:
+            first, second = right_branch, left_branch
 
-        # Parse back into a PatternTree.
-        return pattern_tree_from_string(overlay_code)
+        # Build the cp_binary_named head: OVERLAY token under control__cp_binary_named.
+        overlay_head = TreeNode(
+            op="control__cp_binary_named",
+            children=[TreeNode(op="OVERLAY", value="overlay")],
+        )
+
+        # Build the cp_playable_term root that applies overlay to the two branches.
+        new_root = TreeNode(
+            op="control__cp_playable_term",
+            children=[overlay_head, first, second],
+        )
+
+        return PatternTree(root=new_root)
 
     return op
 
 
-def append_op_factory(
+def _append_op_factory(
     *, 
     use_target: bool = False, 
     min_length: int = 10, 
@@ -630,38 +731,71 @@ def append_op_factory(
     use_tree_metrics: bool = True
 ) -> MutationOp:
     """
-    Mutation operator that creates a new pattern by appending a randomly generated pattern.
-    Either "append" or "fastAppend" combinator is used (with randomized argument order), where:
-        "append" combines two patterns sequentially.
-        "fastAppend" combines two patterns by interleaving their events.
+    Mutation operator that creates a new pattern by appending a randomly
+    generated pattern using the ``append`` / ``fastAppend`` combinators.
+
+    This tree-level implementation mirrors the canonical parse shape for
+    expressions like::
+
+        append (p1) (p2)
+        fastAppend (p1) (p2)
+
+    which Lark parses into a ``PatternTree`` of the form:
+
+        control__cp_playable_term
+          control__cp_binary_named
+            APPEND | FASTAPPEND
+          <left-playable>
+          <right-playable>
+
+    We keep the previous semantics:
+      - combinator is randomly chosen between ``append`` and ``fastAppend``,
+      - argument order is randomized, so either the base or the new branch
+        can appear on the left.
 
     Produces patterns like:
         append (basePattern) (newPattern)
         fastAppend (newPattern) (basePattern)
     """
 
-    # Unused config parameters kept intentionally
+    # Unused config parameters kept intentionally for future tuning
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code
-        base_code = to_tidal(tree)
+        # Existing playable branch is the current root subtree.
+        base_branch = tree.root
 
-        # Generate 1–3-depth new branch
+        # Generate 1–3-depth new branch as a fresh playable pattern.
         new_branch_tree = generate_expressions(rng.randint(1, 3))[0]
-        new_branch_code = to_tidal(new_branch_tree)
+        new_branch_branch = new_branch_tree.root
 
-        # Choose combinator
+        # Choose combinator: 'append' or 'fastAppend'.
         combinator = "append" if rng.random() < 0.5 else "fastAppend"
 
-        # Randomize argument order
+        # Randomize argument order: sometimes base on the left, sometimes right.
         if rng.random() < 0.5:
-            appended_code = f"{combinator} ({base_code}) ({new_branch_code})"
+            left, right = base_branch, new_branch_branch
         else:
-            appended_code = f"{combinator} ({new_branch_code}) ({base_code})"
+            left, right = new_branch_branch, base_branch
 
-        # Parse back into a PatternTree
-        return pattern_tree_from_string(appended_code)
+        # Build the cp_binary_named head with the appropriate token.
+        if combinator == "append":
+            head_token = TreeNode(op="APPEND", value="append")
+        else:  # "fastAppend"
+            head_token = TreeNode(op="FASTAPPEND", value="fastAppend")
+
+        binary_head = TreeNode(
+            op="control__cp_binary_named",
+            children=[head_token],
+        )
+
+        # Build the cp_playable_term root that applies the combinator.
+        new_root = TreeNode(
+            op="control__cp_playable_term",
+            children=[binary_head, left, right],
+        )
+
+        return PatternTree(root=new_root)
 
     return op
 
@@ -674,7 +808,7 @@ EUCLID_TRANSFORMS = [
     "iter 2",  # Iterates pattern twice within the same cycle
 ]
 
-def euclid_op_factory(
+def _euclid_op_factory(
     *, 
     use_target: bool = False, 
     min_length: int = 10, 
@@ -682,35 +816,116 @@ def euclid_op_factory(
     use_tree_metrics: bool = True
 ) -> MutationOp:
     """
-    Mutation operator that wraps an existing pattern inside a Tidal "euclid" expression.
+    Mutation operator that wraps an existing pattern inside a Tidal ``euclid``
+    expression.
+
+    This tree-level implementation mirrors the canonical parse shape for
+    expressions like::
+
+        euclid (pulses) (steps) (p)
+        rev (euclid (pulses) (steps) (p))
+        fast 2 (euclid (pulses) (steps) (p))
 
     Produces patterns like:
         euclid 5 16 (basePattern)
         rev $ (euclid 3 8 (basePattern))
     """
-    # Unused config parameters kept intentionally
+    # Unused config parameters kept intentionally for future tuning
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code
-        base_code = to_tidal(tree)
+        # Existing playable branch is the current root subtree.
+        base_branch = tree.root
 
         # Choose pulses and steps
         step_choices = [8, 12, 16, 24, 32]
         steps = rng.choice(step_choices)
         pulses = rng.randint(1, steps)
 
-        # Choose transformation
+        # Choose optional outer transformation
         transform = rng.choice(EUCLID_TRANSFORMS)
 
-        # Build final euclid expression (if transform is empty, no transformation is applied)
-        if transform == "":
-            euclid_code = f"euclid ({pulses}) ({steps}) ({base_code})"
-        else:
-            euclid_code = f"{transform} (euclid ({pulses}) ({steps}) ({base_code}))"
+        # Build Pattern Int literal nodes for pulses and steps, matching the
+        # structure produced by parsing e.g. `euclid (3) (8) (s("bd"))`:
+        #
+        #   control__pattern_int__int_literal
+        #     control__pattern_int__INT "3"
+        pulses_node = TreeNode(
+            op="control__pattern_int__int_literal",
+            children=[
+                TreeNode(op="control__pattern_int__INT", value=str(pulses)),
+            ],
+        )
+        steps_node = TreeNode(
+            op="control__pattern_int__int_literal",
+            children=[
+                TreeNode(op="control__pattern_int__INT", value=str(steps)),
+            ],
+        )
 
-        # Parse back into a PatternTree
-        return pattern_tree_from_string(euclid_code)
+        # Build the cp_euclid_playable subtree.
+        euclid_node = TreeNode(
+            op="control__cp_euclid_playable",
+            children=[
+                TreeNode(op="EUCLID", value="euclid"),
+                TreeNode(op="LPAR", value="("),
+                pulses_node,
+                TreeNode(op="RPAR", value=")"),
+                TreeNode(op="LPAR", value="("),
+                steps_node,
+                TreeNode(op="RPAR", value=")"),
+                TreeNode(op="LPAR", value="("),
+                base_branch,
+                TreeNode(op="RPAR", value=")"),
+            ],
+        )
+
+        # If no transform selected, the euclid node is already a playable term.
+        if transform == "":
+            return PatternTree(root=euclid_node)
+
+        # Otherwise, wrap the euclid subtree in a prefix_cp-based cp_playable_term.
+        prefix_children: list[TreeNode]
+
+        if transform == "rev":
+            # control__prefix_cp (REV)
+            prefix_children = [TreeNode(op="REV", value="rev")]
+        elif transform == "fast 2":
+            # control__prefix_cp (FAST, control__pattern_time__INT "2")
+            prefix_children = [
+                TreeNode(op="FAST", value="fast"),
+                TreeNode(op="control__pattern_time__INT", value="2"),
+            ]
+        elif transform == "slow 2":
+            prefix_children = [
+                TreeNode(op="SLOW", value="slow"),
+                TreeNode(op="control__pattern_time__INT", value="2"),
+            ]
+        elif transform == "iter 2":
+            prefix_children = [
+                TreeNode(op="ITER", value="iter"),
+                TreeNode(
+                    op="control__pattern_int__int_literal",
+                    children=[
+                        TreeNode(op="control__pattern_int__INT", value="2"),
+                    ],
+                ),
+            ]
+        else:
+            # Fallback: if an unexpected transform string appears, ignore it.
+            return PatternTree(root=euclid_node)
+
+        prefix_node = TreeNode(
+            op="control__prefix_cp",
+            children=prefix_children,
+        )
+
+        new_root = TreeNode(
+            op="control__cp_playable_term",
+            children=[prefix_node, euclid_node],
+        )
+
+        return PatternTree(root=new_root)
 
     return op
 
@@ -721,22 +936,113 @@ def _scale_wrap_op_factory(
     max_examples: int,
     use_tree_metrics: bool,
 ) -> MutationOp:
-    """Factory for a scale-based mutation operator."""
-     
-    SCALE_NAMES = ["major", "minor", "dorian", "ritusen"]
-    INT_PATTERNS = ["0", "0 2 4", "0 .. 7"]
-    SOUNDS = ["bd", "sn", "hh", "cp", "tabla", "arpy"]
+    """Factory for a scale-based mutation operator that operates at tree level.
+    
+    Constructs patterns like:
+        basePattern # n(scale "major" "0") # s("bd")
+        
+    The tree structure follows the left-associative infix chain:
+        control_pattern
+          <base_playable>
+          control__cp_infix_op (OP_HASH)
+          control__cp_note_atom (n(scale ...))
+          control__cp_infix_op (OP_HASH)
+          control__cp_sound_atom (s(...))
+    """
+    
+    SCALE_NAMES = _SCALE_NAME_POOL
+    INT_PATTERNS = _SCALE_INT_PATTERN_POOL
+    SOUNDS = _SOUND_POOL
+    
+    # Unused config parameters kept intentionally for future tuning
+    del use_target, min_length, max_examples, use_tree_metrics
     
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        base_code = to_tidal(tree)
+        base_branch = tree.root
         scale_name = rng.choice(SCALE_NAMES)
         int_pattern = rng.choice(INT_PATTERNS)
         sound = rng.choice(SOUNDS)
         
-        # Generate complete pattern with sound
-        pattern_code = f'{base_code} # n(scale "{scale_name}" "{int_pattern}") # s("{sound}")'
+        # 1. Build the scale constructor: n(scale "scale_name" "int_pattern")
+        scale_literal_node = TreeNode(
+            op="control__pattern_note__pattern_string_scale__scale_literal",
+            children=[
+                TreeNode(
+                    op="control__pattern_note__pattern_string_scale__SCALE_STRING",
+                    value=f'"{scale_name}"',
+                )
+            ],
+        )
         
-        return pattern_tree_from_string(pattern_code)
+        int_string_literal_node = TreeNode(
+            op="control__pattern_note__pattern_int__int_string_literal",
+            children=[
+                TreeNode(
+                    op="control__pattern_note__pattern_int__STRING",
+                    value=f'"{int_pattern}"',
+                )
+            ],
+        )
+        
+        scale_ctor_node = TreeNode(
+            op="control__pattern_note__scale_ctor",
+            children=[scale_literal_node, int_string_literal_node],
+        )
+        
+        note_atom_node = TreeNode(
+            op="control__cp_note_atom",
+            children=[
+                TreeNode(
+                    op="control__note_to_cp",
+                    children=[TreeNode(op="N", value="n")],
+                ),
+                scale_ctor_node,
+            ],
+        )
+        
+        # 2. Build the sound atom: s("sound")
+        sound_atom_node = TreeNode(
+            op="control__cp_sound_atom",
+            children=[
+                TreeNode(op="S", value="s"),
+                TreeNode(op="LPAR", value="("),
+                TreeNode(
+                    op="control__pattern_string_sample__sample_literal",
+                    children=[
+                        TreeNode(
+                            op="control__pattern_string_sample__SAMPLE_STRING",
+                            value=f'"{sound}"',
+                        )
+                    ],
+                ),
+                TreeNode(op="RPAR", value=")"),
+            ],
+        )
+        
+        # 3. Build infix operators (OP_HASH)
+        hash_op_1 = TreeNode(
+            op="control__cp_infix_op",
+            children=[TreeNode(op="control__OP_HASH", value="#")],
+        )
+        
+        hash_op_2 = TreeNode(
+            op="control__cp_infix_op",
+            children=[TreeNode(op="control__OP_HASH", value="#")],
+        )
+        
+        # 4. Build the control_pattern root with left-associative infix chain
+        new_root = TreeNode(
+            op="control_pattern",
+            children=[
+                base_branch,
+                hash_op_1,
+                note_atom_node,
+                hash_op_2,
+                sound_atom_node,
+            ],
+        )
+        
+        return PatternTree(root=new_root)
     
     return op
 
@@ -747,50 +1053,134 @@ def _note_wrap_op_factory(
     max_examples: int,
     use_tree_metrics: bool,
 ) -> MutationOp:
-    """Factory for a note-based mutation operator.
+    """Factory for a note-based mutation operator that operates at tree level.
     
     Creates ControlPatterns using n/note with simple note patterns.
+    
+    The tree structure follows the left-associative infix chain:
+        control_pattern
+          <base_playable>
+          control__cp_infix_op (OP_HASH)
+          control__cp_note_atom (n/note "...")
+          [optionally: control__cp_infix_op (OP_HASH) + control__cp_sound_atom]
+    
+    Produces patterns like:
+        basePattern # n "0"
+        basePattern # note "0 7"
+        basePattern # n "0" # s("bd")  [when base has no sound]
     """
     
     NOTE_FUNCTIONS = ["n", "note"]
     
     # Note patterns (as strings) - these are the degrees/semitones
-    NOTE_PATTERNS = [
-        "0", "0 7", "0 4 7", "0 2 4 5 7 9 11", 
-        "0 .. 11", "-12 .. 12", "24 36 48",
-        "60", "60 64 67", "0.5", "1.5" 
-    ]
+    NOTE_PATTERNS = _NOTE_PATTERN_POOL
     
     # Sound patterns to combine with
-    SOUNDS = ["bd", "sn", "hh", "cp", "tabla", "arpy"]
+    SOUNDS = _SOUND_POOL
+    
+    # Unused config parameters kept intentionally for future tuning
+    del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-       
-        # Get the existing pattern
-        base_code = to_tidal(tree)
+        base_branch = tree.root
         
         # Choose components
         note_func = rng.choice(NOTE_FUNCTIONS)
         note_pattern = rng.choice(NOTE_PATTERNS)
         sound = rng.choice(SOUNDS)
         
-        # Check if base_code already has sound
-        # Simple heuristic - if it contains 'sound' or 's ', assume it has sound
-        has_sound = ('sound' in base_code) or ('s ' in base_code)
+        # Detect if base pattern already has sound by checking root op type
+        # Sound-producing ops: cp_sound_atom, or patterns that likely have sound
+        has_sound = base_branch.op in [
+            "control__cp_sound_atom",
+            "control__cp_lists_playable",
+            "control__cp_euclid_playable",
+            "control__cp_mask_playable",
+            "control__cp_jux_playable",
+            "control__cp_slice_playable",
+            "control__cp_chop_playable",
+            "control__cp_striate_playable",
+            "control__cp_timeops_playable",
+            "control__cp_applied_playable",
+            "control__cp_playable_term",
+            "control_pattern",
+        ]
+        
+        # 1. Build the note atom: n/note "note_pattern"
+        if note_func == "n":
+            note_func_token = TreeNode(op="N", value="n")
+        else:  # "note"
+            note_func_token = TreeNode(op="NOTE", value="note")
+        
+        note_atom_node = TreeNode(
+            op="control__cp_note_atom",
+            children=[
+                TreeNode(
+                    op="control__note_to_cp",
+                    children=[note_func_token],
+                ),
+                TreeNode(op="control__STRING", value=f'"{note_pattern}"'),
+            ],
+        )
+        
+        # 2. Build infix operator (OP_HASH)
+        hash_op_1 = TreeNode(
+            op="control__cp_infix_op",
+            children=[TreeNode(op="control__OP_HASH", value="#")],
+        )
         
         if has_sound:
-            # Overlay note pattern on existing sound
-            pattern_code = f'{base_code} # {note_func} "{note_pattern}"'
+            # Only add note, no additional sound
+            new_root = TreeNode(
+                op="control_pattern",
+                children=[
+                    base_branch,
+                    hash_op_1,
+                    note_atom_node,
+                ],
+            )
         else:
-            # Add both note and sound to base pattern
-            pattern_code = f'{base_code} # {note_func} "{note_pattern}" # s("{sound}")'
+            # Add both note and sound
+            hash_op_2 = TreeNode(
+                op="control__cp_infix_op",
+                children=[TreeNode(op="control__OP_HASH", value="#")],
+            )
+            
+            sound_atom_node = TreeNode(
+                op="control__cp_sound_atom",
+                children=[
+                    TreeNode(op="S", value="s"),
+                    TreeNode(op="LPAR", value="("),
+                    TreeNode(
+                        op="control__pattern_string_sample__sample_literal",
+                        children=[
+                            TreeNode(
+                                op="control__pattern_string_sample__SAMPLE_STRING",
+                                value=f'"{sound}"',
+                            )
+                        ],
+                    ),
+                    TreeNode(op="RPAR", value=")"),
+                ],
+            )
+            
+            new_root = TreeNode(
+                op="control_pattern",
+                children=[
+                    base_branch,
+                    hash_op_1,
+                    note_atom_node,
+                    hash_op_2,
+                    sound_atom_node,
+                ],
+            )
         
-        return pattern_tree_from_string(pattern_code)
+        return PatternTree(root=new_root)
     
     return op
 
 
-def speed_op_factory(
+def _speed_op_factory(
     *,
     use_target: bool = False,
     min_length: int = 10,
@@ -799,17 +1189,24 @@ def speed_op_factory(
 ) -> MutationOp:
     """
     Mutation operator that applies a speed transformation (fast or slow) to the pattern.
+    Operates at tree level by constructing the appropriate prefix_cp structure.
+
+    The tree structure follows:
+        control__cp_playable_term
+          control__prefix_cp
+            FAST/SLOW token
+            control__pattern_time__INT or control__pattern_time__DOUBLE (factor)
+          <base_playable_subtree>
 
     Produces patterns like:
-        fast 2 $ (basePattern)
-        slow 0.5 $ (basePattern)
+        fast 2 (basePattern)
+        slow 0.5 (basePattern)
     """
     # Unused config parameters kept intentionally
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code
-        base_code = to_tidal(tree)
+        base_branch = tree.root
 
         # Choose fast or slow
         op_name = rng.choice(["fast", "slow"])
@@ -818,16 +1215,41 @@ def speed_op_factory(
         factors = [0.5, 1.5, 2, 3]
         factor = rng.choice(factors)
 
-        # Build speed expression
-        speed_code = f"{op_name} {factor} $ ({base_code})"
+        # Build the prefix_cp node with the appropriate token and factor
+        if op_name == "fast":
+            op_token = TreeNode(op="FAST", value="fast")
+        else:  # "slow"
+            op_token = TreeNode(op="SLOW", value="slow")
 
-        # Parse back into a PatternTree
-        return pattern_tree_from_string(speed_code)
+        # Determine if factor is int or float, and create appropriate node
+        if isinstance(factor, int) or factor == int(factor):
+            factor_node = TreeNode(
+                op="control__pattern_time__INT",
+                value=str(int(factor)),
+            )
+        else:
+            factor_node = TreeNode(
+                op="control__pattern_time__DOUBLE",
+                value=str(factor),
+            )
+
+        prefix_node = TreeNode(
+            op="control__prefix_cp",
+            children=[op_token, factor_node],
+        )
+
+        # Build the cp_playable_term root that applies the speed transformation
+        new_root = TreeNode(
+            op="control__cp_playable_term",
+            children=[prefix_node, base_branch],
+        )
+
+        return PatternTree(root=new_root)
 
     return op
 
 
-def striate_op_factory(
+def _striate_op_factory(
     *,
     use_target: bool = False,
     min_length: int = 10,
@@ -836,41 +1258,164 @@ def striate_op_factory(
 ) -> MutationOp:
     """
     Mutation operator that applies striate to create a stutter/layering effect.
+    Operates at tree level by constructing the appropriate cp_striate_playable structure.
+
+    The tree structure follows:
+        control__cp_striate_playable
+          STRIATE token
+          LPAR
+          control__pattern_int__int_literal (n value)
+          RPAR
+          LPAR
+          <base_playable_subtree>
+          RPAR
 
     Produces patterns like:
-        striate 3 $ (basePattern)
+        striate(3)(basePattern)
+        striate(4)(basePattern)
     """
     # Unused config parameters kept intentionally
     del use_target, min_length, max_examples, use_tree_metrics
 
     def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Convert the existing pattern to Tidal code
-        base_code = to_tidal(tree)
+        base_branch = tree.root
 
         # Choose n from 2 to 6
         n_values = [2, 3, 4, 5, 6]
         n = rng.choice(n_values)
 
-        # Build striate expression
-        striate_code = f"striate {n} $ ({base_code})"
+        # Build the int parameter node
+        n_node = TreeNode(
+            op="control__pattern_int__int_literal",
+            children=[
+                TreeNode(op="control__pattern_int__INT", value=str(n))
+            ],
+        )
 
-        # Parse back into a PatternTree
-        return pattern_tree_from_string(striate_code)
+        # Build the cp_striate_playable root
+        new_root = TreeNode(
+            op="control__cp_striate_playable",
+            children=[
+                TreeNode(op="STRIATE", value="striate"),
+                TreeNode(op="LPAR", value="("),
+                n_node,
+                TreeNode(op="RPAR", value=")"),
+                TreeNode(op="LPAR", value="("),
+                base_branch,
+                TreeNode(op="RPAR", value=")"),
+            ],
+        )
+
+        return PatternTree(root=new_root)
+
+    return op
+
+
+def _clone_treenode(node: TreeNode) -> TreeNode:
+    """Recursively clone a TreeNode subtree.
+
+    This helper is used by mutation operators that want to avoid mutating
+    the input PatternTree in-place.
+    """
+    return TreeNode(
+        op=node.op,
+        children=[_clone_treenode(child) for child in node.children],
+        value=node.value,
+    )
+
+
+def _terminal_substitution_op_factory(
+    *,
+    use_target: bool = False,
+    min_length: int = 10,
+    max_examples: int = 500,
+    use_tree_metrics: bool = True,
+) -> MutationOp:
+    """
+    Mutation operator that randomly substitutes terminal musical values
+    (sounds, note patterns, scale names and scale degree patterns) while
+    preserving the tree structure.
+
+    Each candidate terminal is mutated independently with a fixed probability.
+    """
+    # Unused config parameters kept intentionally for future tuning
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    # Per-node mutation probabilities
+    SOUND_PROB = 0.5
+    NOTE_PROB = 0.5
+    SCALE_PROB = 0.5
+
+    def _maybe_substitute(node: TreeNode, rng: random.Random) -> None:
+        op = node.op
+
+        # Helper to pick a new quoted value from a pool, ideally different
+        def _choose_new_quoted(current: Any, pool: list[str]) -> str:
+            if not isinstance(current, str):
+                inner_current = None
+            elif len(current) >= 2 and current[0] == '"' and current[-1] == '"':
+                inner_current = current[1:-1]
+            else:
+                inner_current = current
+
+            if len(pool) > 1 and inner_current in pool:
+                choices = [v for v in pool if v != inner_current]
+            else:
+                choices = pool
+
+            new_inner = rng.choice(choices)
+            return f'"{new_inner}"'
+
+        # Sounds: control__pattern_string_sample__SAMPLE_STRING
+        if op == "control__pattern_string_sample__SAMPLE_STRING":
+            if rng.random() < SOUND_PROB:
+                node.value = _choose_new_quoted(node.value, _SOUND_POOL)
+            return
+
+        # Note patterns: control__STRING (used under cp_note_atom)
+        if op == "control__STRING":
+            if rng.random() < NOTE_PROB:
+                node.value = _choose_new_quoted(node.value, _NOTE_PATTERN_POOL)
+            return
+
+        # Scale names: control__pattern_note__pattern_string_scale__SCALE_STRING
+        if op == "control__pattern_note__pattern_string_scale__SCALE_STRING":
+            if rng.random() < SCALE_PROB:
+                node.value = _choose_new_quoted(node.value, _SCALE_NAME_POOL)
+            return
+
+        # Scale degree patterns: control__pattern_note__pattern_int__STRING
+        if op == "control__pattern_note__pattern_int__STRING":
+            if rng.random() < SCALE_PROB:
+                node.value = _choose_new_quoted(node.value, _SCALE_INT_PATTERN_POOL)
+            return
+
+    def _walk(node: TreeNode, rng: random.Random) -> None:
+        _maybe_substitute(node, rng)
+        for child in node.children:
+            _walk(child, rng)
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Work on a cloned tree to avoid mutating the input in-place
+        new_root = _clone_treenode(tree.root)
+        _walk(new_root, rng)
+        return PatternTree(root=new_root)
 
     return op
 
 
 _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
-    "subtree_replace": _subtree_replace_op_factory,
-    "stack_wrap": _stack_wrap_op_factory,
-    "struct": _struct_op_factory,
-    "overlay_wrap": _overlay_wrap_op_factory,
-    "append": append_op_factory,
-    "euclid": euclid_op_factory,
-    "scale_wrap": _scale_wrap_op_factory,
-    "note_wrap": _note_wrap_op_factory,
-    "speed": speed_op_factory,
-    "striate": striate_op_factory,
+    # "subtree_replace": _subtree_replace_op_factory,
+    # "stack_wrap": _stack_wrap_op_factory,
+    # "struct": _struct_op_factory,
+    # "overlay_wrap": _overlay_wrap_op_factory,
+    # "append": _append_op_factory,
+    # "euclid": _euclid_op_factory,
+    # "scale_wrap": _scale_wrap_op_factory,
+    # "note_wrap": _note_wrap_op_factory,
+    # "speed": _speed_op_factory,
+    # "striate": _striate_op_factory,
+    "terminal_substitution": _terminal_substitution_op_factory,
 }
 
 def mutate_pattern_tree(
