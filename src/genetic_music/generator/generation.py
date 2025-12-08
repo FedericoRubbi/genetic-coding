@@ -5,28 +5,19 @@ This module exposes a small, tidy API:
 - ``parse_control_pattern(text)`` -> Lark parse tree
 - ``pattern_tree_from_string(text)`` -> :class:`PatternTree`
 - ``generate_expressions(n)`` -> list of :class:`PatternTree` generated via
-  Hypothesis strategies over the Lark grammar.
+  a custom seed-then-mutate generator over the TidalCycles AST.
 """
 
 from __future__ import annotations
 
 import random
-import warnings
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
-from hypothesis import HealthCheck, Phase, given, settings, target
-from hypothesis import strategies as st
-from hypothesis.errors import HypothesisWarning, NonInteractiveExampleWarning
-from hypothesis.extra.lark import from_lark
 from lark import Lark, Token, Tree
 
 from genetic_music.codegen.tidal_codegen import to_tidal
 from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
-
-# Silence Hypothesis warnings when using strategies as a data generator.
-warnings.filterwarnings("ignore", category=NonInteractiveExampleWarning)
-warnings.filterwarnings("ignore", category=HypothesisWarning)
 
 # ---------------------------------------------------------------------------
 # Parser construction
@@ -50,38 +41,6 @@ def _build_parsers() -> tuple[Lark, Lark]:
     return earley, gen
 
 _EARLEY_PARSER, _GEN_PARSER = _build_parsers()
-
-# ---------------------------------------------------------------------------
-# Additional parser for subtree mutation
-# ---------------------------------------------------------------------------
-
-# For mutation we want to be able to start from many internal control rules,
-# not only ``control_pattern``.  We derive the available rule names from the
-# generation parser and select those belonging to the ``control`` module.
-_CONTROL_RULE_NAMES = sorted(
-    {
-        name
-        for rule in _GEN_PARSER.rules
-        for name in [getattr(getattr(rule, "origin", None), "name", None)]
-        if isinstance(name, str) and name.startswith("control__")
-    }
-)
-
-_MUTATION_START_RULES: List[str] = [
-    # Top-level control pattern entrypoint
-    "control_pattern",
-    # All rules that are namespaced under the imported ``control`` grammar
-    *_CONTROL_RULE_NAMES,
-]
-_MUTATION_START_SET = set(_MUTATION_START_RULES)
-
-# Dedicated LALR parser that accepts any of the mutation start rules.
-_MUTATION_PARSER = Lark.open(
-    "src/genetic_music/grammar/main.lark",
-    start=_MUTATION_START_RULES,
-    parser="lalr",
-    lexer="contextual",
-)
 
 # ---------------------------------------------------------------------------
 # Token pretty-printing helpers
@@ -113,56 +72,6 @@ def _pretty_with_spaces(s: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Hypothesis strategy for valid control_pattern strings
-# ---------------------------------------------------------------------------
-
-def _make_explicit(gen_lark: Lark, base_to_strategy):
-    print(f"Making explicit for {gen_lark}")
-    term_names = {t.name for t in gen_lark.terminals}
-    explicit = {}
-    for base, strat in base_to_strategy.items():
-        matches = [n for n in term_names if n == base or n.endswith("__" + base)]
-        if not matches:
-            # print(f"No matches for {base}")
-            continue
-        for m in matches:
-            # print(f"Adding {m} = {strat}")
-            explicit[m] = strat
-    # print(f"Explicit: {explicit}")
-    return explicit
-
-
-_BASE_EXPLICIT = {
-    # Finite string domains
-    "SAMPLE_STRING": st.sampled_from(['"bd"', '"sn"', '"hh"', '"tabla"']),
-    "VOWEL_STRING": st.sampled_from(['"a"', '"e"', '"i"', '"o"', '"u"']),
-    "SCALE_STRING": st.sampled_from(['"minor"', '"major"', '"dorian"']),
-    "PARAM_STRING": st.sampled_from(['"pan"', '"gain"', '"shape"', '"cutoff"']),
-    "BUS_STRING": st.sampled_from(['"gain"', '"speed"', '"pan"']),
-    # Keep numbers small/readable
-    "INT": st.integers(min_value=0, max_value=12).map(str),
-    "DOUBLE": st.floats(
-        min_value=0, max_value=8, allow_nan=False, allow_infinity=False
-    ).map(lambda x: f"{x:.2f}"),
-}
-
-# Use the parser's ignore tokens to define whitespace behaviour
-_BASE_EXPLICIT["SILENCE"] = st.nothing()
-for name in getattr(_GEN_PARSER, "ignore_tokens", ()):
-    if name == "WS":
-        _BASE_EXPLICIT[name] = st.just(" ")
-    else:
-        _BASE_EXPLICIT[name] = st.just("")
-
-_BASE_EXPLICIT.update(
-    {
-        "WS": st.just(" "),
-    }
-)
-
-_EXPLICIT = _make_explicit(_GEN_PARSER, _BASE_EXPLICIT)
-
-# ---------------------------------------------------------------------------
 # Shared finite musical value pools for mutation operators
 # ---------------------------------------------------------------------------
 
@@ -186,258 +95,11 @@ _SCALE_NAME_POOL = ["major", "minor", "dorian", "ritusen"]
 
 _SCALE_INT_PATTERN_POOL = ["0", "0 2 4", "0 .. 7"]
 
-_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-'\"()[],.|*+/%#<>~{}:"
-_ALPHABET_STRATEGY = st.sampled_from(list(_ALPHABET))
-
-_CP_STRINGS = from_lark(
-    _GEN_PARSER,
-    start="control_pattern",
-    explicit=_EXPLICIT,
-    alphabet=_ALPHABET_STRATEGY,
-)
-
-
-def _collect_targeted_patterns(
-    n: int,
-    *,
-    min_length: int,
-    max_examples: int,
-    database: Any | None = None,
-    use_tree_metrics: bool = True,
-) -> List[str]:
-    """Use Hypothesis' targeted search to collect up to ``n`` pattern strings.
-
-    This helper drives the ``_CP_STRINGS`` strategy under a ``@given`` test
-    with a :func:`target` call that rewards longer and structurally larger
-    patterns.  It returns a list of *raw* pattern strings; callers are
-    responsible for parsing and wrapping them as :class:`PatternTree`
-    instances.
-
-    The number of collected patterns may be less than ``n`` if the search
-    fails to discover enough high-scoring examples within ``max_examples``.
-    """
-
-    collected: List[str] = []
-
-    @settings(
-        max_examples=max_examples,
-        derandomize=False,
-        database=database,
-        phases=(Phase.generate, Phase.target),
-        suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much),
-        deadline=None,
-    )
-    @given(p=_CP_STRINGS)
-    def _explore(p: str) -> None:
-        # Ensure we only work with non-empty strings.
-        if not isinstance(p, str) or not p.strip():
-            return
-
-        # Primary metric: maximize textual length of the pattern.
-        target(float(len(p)), label="pattern_length")
-
-        # Optional secondary metrics on the parsed tree structure.  We only
-        # bother computing these while we are still filling the collection.
-        if use_tree_metrics and len(collected) < n:
-            try:
-                tree = parse_control_pattern(p)
-                ptree = PatternTree.from_lark_tree(tree)
-            except Exception:
-                # Parsing failures are treated as uninteresting; we simply
-                # skip structural metrics for this example.
-                pass
-            else:
-                # Reward larger trees (more nodes) and deeper trees.
-                target(float(ptree.size()), label="tree_size")
-                target(float(ptree.depth()), label="tree_depth")
-
-        # Record high-scoring candidates, favouring longer strings.
-        if len(p) >= min_length and len(collected) < n:
-            collected.append(p)
-
-    # Run the Hypothesis engine once; it will execute ``_explore`` up to
-    # ``max_examples`` times (or fewer if it deems the search space saturated).
-    _explore()
-    return collected
-
-
-# Cache of per-rule generative strategies (rule name -> strategy yielding strings)
-_RULE_STRATEGIES: Dict[str, Optional[st.SearchStrategy[str]]] = {}
-
-
-def _strategy_for_rule(rule_name: str) -> Optional[st.SearchStrategy[str]]:
-    """Return (and cache) a Hypothesis strategy that generates strings for a rule.
-
-    The strategy samples strings that are valid derivations of the given
-    non-terminal ``rule_name`` according to the LALR grammar used for
-    mutation.  Returns ``None`` if such a strategy cannot be constructed.
-    """
-    # Only attempt to build a strategy for rules that are valid mutation
-    # entrypoints for the dedicated mutation parser.
-    if rule_name not in _MUTATION_START_SET:
-        print(f"Rule {rule_name} is not a valid mutation start rule")
-        # print(f"Valid mutation start rules: {_MUTATION_START_SET}")
-        return None
-
-    if rule_name in _RULE_STRATEGIES:
-        print(f"Returning cached strategy for rule {rule_name}")
-        # print(f"Cached strategy: {_RULE_STRATEGIES[rule_name]}")
-        return _RULE_STRATEGIES[rule_name]
-
-    try:
-        strat: st.SearchStrategy[str] = from_lark(
-            _MUTATION_PARSER,
-            start=rule_name,
-            explicit=_EXPLICIT,
-            alphabet=_ALPHABET_STRATEGY,
-        )
-    except Exception as e:
-        print(f"Error building strategy for rule {rule_name}: {e}")
-        strat = None  # type: ignore[assignment]
-
-    _RULE_STRATEGIES[rule_name] = strat
-    return strat
-
-
-def _collect_targeted_subtrees_for_rule(
-    rule_name: str,
-    *,
-    n: int,
-    min_length: int,
-    max_examples: int,
-    use_tree_metrics: bool,
-    use_target: bool,
-) -> List[TreeNode]:
-    """Use targeted Hypothesis search to collect up to ``n`` subtrees for a rule.
-
-    This works similarly to :func:`_collect_targeted_patterns`, but uses the
-    per-rule strategy and mutation parser.  When ``use_target`` is ``False``,
-    Hypothesis still generates examples but :func:`target` is never called,
-    which makes it easy to compare performance with and without targeting.
-    """
-    strat = _strategy_for_rule(rule_name)
-    if strat is None:
-        return []
-
-    collected: List[TreeNode] = []
-
-    @settings(
-        max_examples=max_examples,
-        derandomize=False,
-        database=None,
-        phases=(Phase.generate, Phase.target) if use_target else (Phase.generate,),
-        suppress_health_check=(HealthCheck.too_slow, HealthCheck.filter_too_much),
-        deadline=None,
-    )
-    @given(s=strat)
-    def _explore(s: str) -> None:
-        try:
-            if not isinstance(s, str) or not s.strip():
-                return
-
-            if use_target:
-                target(float(len(s)), label="subtree_length")
-
-            if len(collected) >= n:
-                return
-
-            try:
-                parsed = _MUTATION_PARSER.parse(s, start=rule_name)
-                ptree = PatternTree.from_lark_tree(parsed)
-            except Exception as e:
-                print(f"Error parsing {s} for rule {rule_name}: {e}")
-                breakpoint()
-                return
-
-            if use_target and use_tree_metrics:
-                target(float(ptree.size()), label="subtree_size")
-                target(float(ptree.depth()), label="subtree_depth")
-
-            if len(s) >= min_length and len(collected) < n:
-                collected.append(ptree.root)
-
-        except Exception as e:
-            print(f"Error in _explore for rule {rule_name} with string {s}: {e}")
-            breakpoint()
-    try:
-        _explore()
-    except Exception as e:
-        print(f"Error running Hypothesis explore for rule {rule_name}: {e}")
-        breakpoint()
-    return collected
-
-
-def generate_subtree_for_rule(
-    rule_name: str,
-    max_attempts: int = 20,
-    *,
-    use_target: bool,
-    min_length: int,
-    max_examples: int,
-    use_tree_metrics: bool,
-) -> Optional[TreeNode]:
-    """Generate a new subtree for the given grammar rule.
-
-    This uses Hypothesis' Lark integration to draw example strings from the
-    grammar starting at ``rule_name``, then parses them back into a Lark tree
-    (also starting at ``rule_name``) and converts that into a ``TreeNode`` tree.
-    If no valid example can be found within ``max_attempts`` draws, returns
-    ``None``.
-    """
-    # Optional targeted search for a high-complexity subtree.
-
-    # if use_target:
-    nodes = _collect_targeted_subtrees_for_rule(
-        rule_name,
-        n=1,
-        min_length=min_length,
-        max_examples=max_examples,
-        use_tree_metrics=use_tree_metrics,
-        use_target=use_target,  # targetting may be disables but we still change settings
-    )
-    if nodes:
-        return nodes[0]
-
-    print(f"No targeted nodes found for rule {rule_name}, falling back to simple generation")
-
-    # Fallback: simple example-based generation as before.
-    strat = _strategy_for_rule(rule_name)
-    if strat is None:
-        return None
-
-    for _ in range(max_attempts):
-        # Draw a candidate string for this rule.
-        text = strat.example()
-        if not isinstance(text, str) or not text.strip():
-            print(
-                f"Error generating {text} for rule {rule_name}: "
-                "Text is not a string or is empty"
-            )
-            continue
-
-        try:
-            # Parse the subtree starting from this rule.
-            parsed = _MUTATION_PARSER.parse(text, start=rule_name)
-        except Exception as e:
-            print(f"Error parsing {text} for rule {rule_name}: {e}")
-            continue
-
-        ptree = PatternTree.from_lark_tree(parsed)
-        return ptree.root
-
-    return None
-
-
-def _no_empty_cp_list(tree: Tree) -> bool:
-    """Disallow empty ``cp_list`` like ``randcat []``."""
-    for st_tree in tree.iter_subtrees_topdown():
-        if st_tree.data == "cp_list" and len(st_tree.children) == 0:
-            return False
-    return True
+MutationOp = Callable[[PatternTree, random.Random], PatternTree]
 
 
 # ---------------------------------------------------------------------------
-# Tree mutation helpers
+# Tree helpers (used by crossover and some mutations)
 # ---------------------------------------------------------------------------
 
 def _iter_nodes_with_paths(
@@ -480,54 +142,6 @@ def _clone_with_replacement(
             new_children.append(child)
 
     return TreeNode(op=node.op, children=new_children, value=node.value)
-
-
-MutationOp = Callable[[PatternTree, random.Random], PatternTree]
-
-
-def _subtree_replace_op_factory(
-    *,
-    use_target: bool,
-    min_length: int,
-    max_examples: int,
-    use_tree_metrics: bool,
-) -> MutationOp:
-    """Factory for the classic subtree-replacement mutation operator.
-
-    This matches the previous behaviour of :func:`mutate_pattern_tree`: pick a
-    random node, generate a new subtree starting from that node's ``op`` via
-    :func:`generate_subtree_for_rule`, and clone the tree with that subtree
-    replaced.  If subtree generation fails, the original tree is returned.
-    """
-
-    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Restrict mutation targets to nodes whose ``op`` is a valid mutation
-        # start rule for our dedicated mutation parser.
-        candidate_nodes = [
-            (path, node)
-            for path, node in _iter_nodes_with_paths(tree.root)
-            if node.op in _MUTATION_START_SET
-        ]
-        if not candidate_nodes:
-            return tree
-
-        path, target = rng.choice(candidate_nodes)
-
-        # Attempt to generate a replacement subtree using the node's op as rule name.
-        new_subtree = generate_subtree_for_rule(
-            target.op,
-            use_target=use_target,
-            min_length=min_length,
-            max_examples=max_examples,
-            use_tree_metrics=use_tree_metrics,
-        )
-        if new_subtree is None:
-            return tree
-
-        new_root = _clone_with_replacement(tree.root, path, new_subtree)
-        return PatternTree(root=new_root)
-
-    return op
 
 
 def _stack_wrap_op_factory(
@@ -1597,7 +1211,6 @@ def _stack_enrich_op_factory(
 
 
 _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
-    # "subtree_replace": _subtree_replace_op_factory,
     # "stack_wrap": _stack_wrap_op_factory,
     # "struct": _struct_op_factory,
     # "overlay_wrap": _overlay_wrap_op_factory,
@@ -1677,90 +1290,144 @@ def pattern_tree_from_string(text: str) -> PatternTree:
     return PatternTree.from_lark_tree(tree)
 
 
+def _random_seed_pattern(rng: random.Random) -> PatternTree:
+    """Generate a small, simple seed pattern as a :class:`PatternTree`.
+
+    Seeds are intentionally tiny (single sounds, simple note patterns, or
+    short stacks) and are later grown by applying tree-level mutation
+    operators in :func:`generate_expressions_mutational`.
+    """
+    # Simple families of seed patterns
+    seed_kind = rng.choice(["sound", "note", "stack"])
+
+    if seed_kind == "sound":
+        sound = rng.choice(_SOUND_POOL)
+        code = f's("{sound}")'
+    elif seed_kind == "note":
+        sound = rng.choice(_SOUND_POOL)
+        note_pattern = rng.choice(_NOTE_PATTERN_POOL)
+        code = f's("{sound}") # n "{note_pattern}"'
+    else:  # "stack"
+        # 2–3 simple sound atoms stacked together
+        k = rng.randint(2, 3)
+        sounds = [rng.choice(_SOUND_POOL) for _ in range(k)]
+        inner = ",".join(f's("{s}")' for s in sounds)
+        code = f"stack[{inner}]"
+
+    try:
+        return pattern_tree_from_string(code)
+    except Exception:
+        # Fallback: if parsing fails for any reason, fall back to a very simple seed.
+        return pattern_tree_from_string('s("bd")')
+
+
 def generate_expressions(n: int = 10) -> List[PatternTree]:
     """Generate ``n`` random control patterns as :class:`PatternTree` objects.
 
-    This uses Hypothesis' Lark integration on the LALR+contextual parser to
-    sample syntax-valid strings, then:
-
-    1. Re-inserts human-friendly spacing.
-    2. Validates with the Earley parser.
-    3. Filters out degenerate structures (e.g., empty ``cp_list``).
-    4. Converts the resulting parse tree into a :class:`PatternTree`.
+    This is a convenience wrapper around :func:`generate_expressions_mutational`
+    using its default configuration.
     """
+    return generate_expressions_mutational(n=n)
+
+
+def generate_expressions_mutational(
+    n: int = 10,
+    *,
+    min_steps: int = 3,
+    max_steps: int = 12,
+    target_size: tuple[int, int] | None = None,
+    target_depth: tuple[int, int] | None = None,
+    rng: Optional[random.Random] = None,
+) -> List[PatternTree]:
+    """Generate ``n`` random patterns by seed-then-mutate over PatternTrees.
+
+    This generator avoids direct Lark-based sampling in favour of:
+
+      1. Sampling a small seed pattern (simple sound/note/stack).
+      2. Applying a sequence of tree-level mutation operators to grow and
+         enrich the pattern until the desired size/depth region is reached.
+
+    It reuses the existing mutation operators defined in this module and
+    therefore guarantees grammar-correct output as long as the operators do.
+    """
+    if rng is None:
+        rng = random
+
+    if target_size is None:
+        target_size = (10, 120)
+    if target_depth is None:
+        target_depth = (3, 12)
+
+    # Group mutation factories by their overall effect on structure.
+    grow_factories: List[Callable[..., MutationOp]] = [
+        _stack_wrap_op_factory,
+        _overlay_wrap_op_factory,
+        _append_op_factory,
+        _scale_wrap_op_factory,
+        _note_wrap_op_factory,
+        _euclid_op_factory,
+        _struct_op_factory,
+        _striate_op_factory,
+        _speed_op_factory,
+        _stack_enrich_op_factory,
+    ]
+    value_factories: List[Callable[..., MutationOp]] = [
+        _terminal_substitution_op_factory,
+    ]
+    shrink_factories: List[Callable[..., MutationOp]] = [
+        _truncate_op_factory,
+    ]
+
     results: List[PatternTree] = []
 
     while len(results) < n:
-        raw = _CP_STRINGS.example()
-        if not raw.strip():
-            continue
-        pretty = raw
-        # pretty = _pretty_with_spaces(raw)
-        # if len(pretty) <= 20:
-        #     continue
-        try:
-            parsed = _EARLEY_PARSER.parse(pretty)
-        except Exception as e:
-            print(f"Error parsing {pretty}: {e}")
-            continue
-        # if not _no_empty_cp_list(parsed):
-        #     continue
+        tree = _random_seed_pattern(rng if isinstance(rng, random.Random) else random.Random())
 
-        results.append(PatternTree.from_lark_tree(parsed))
+        steps = rng.randint(min_steps, max_steps)
+        for _ in range(steps):
+            size = tree.size()
+            depth = tree.depth()
 
-    return results
+            too_small = size < target_size[0] or depth < target_depth[0]
+            too_big = size > target_size[1] or depth > target_depth[1]
 
+            factories: List[Callable[..., MutationOp]]
 
-def generate_expressions_targeted(
-    n: int = 10,
-    *,
-    min_length: int = 30,
-    max_examples: int = 1000,
-    database: Any | None = None,
-    use_tree_metrics: bool = True,
-) -> List[PatternTree]:
-    """Generate up to ``n`` complex patterns using Hypothesis' targeted search.
+            if too_big and shrink_factories:
+                factories = shrink_factories
+            elif too_small and grow_factories:
+                factories = grow_factories
+            else:
+                # Within target band: mix growth, value-only tweaks, and occasional shrink.
+                p = rng.random()
+                if p < 0.5 and grow_factories:
+                    factories = grow_factories
+                elif p < 0.8 and value_factories:
+                    factories = value_factories
+                elif shrink_factories:
+                    factories = shrink_factories
+                else:
+                    factories = grow_factories or value_factories or shrink_factories
 
-    Compared to :func:`generate_expressions`, this function uses a dedicated
-    :func:`target`-driven search that biases the Hypothesis engine towards
-    longer and structurally richer control patterns.  It is primarily intended
-    for exploration and seeding of genetic algorithms, where diversity and
-    complexity are more important than simplicity or shrinking behaviour.
+            if not factories:
+                break
 
-    Parameters
-    ----------
-    n:
-        Maximum number of patterns to return.
-    min_length:
-        Minimal allowed string length for a pattern to be considered
-        ``interesting`` and collected.
-    max_examples:
-        Upper bound on the number of examples Hypothesis will explore while
-        searching for high-scoring patterns.  Larger values increase runtime
-        but typically yield more and more complex patterns.
-    database:
-        Optional Hypothesis example database.  The default ``None`` disables
-        persistent storage, which helps avoid cross-run bias towards previously
-        seen examples.
-    use_tree_metrics:
-        If ``True``, include tree depth and size as additional metrics for
-        :func:`target`, in addition to raw string length.
-    """
-    pattern_strings = _collect_targeted_patterns(
-        n,
-        min_length=min_length,
-        max_examples=max_examples,
-        database=database,
-        use_tree_metrics=use_tree_metrics,
-    )
+            factory = rng.choice(factories)
 
-    results: List[PatternTree] = []
-    for s in pattern_strings:
-        try:
-            parsed = parse_control_pattern(s)
-        except Exception as e:
-            print(f"Error parsing targeted pattern {s!r}: {e}")
-            continue
-        results.append(PatternTree.from_lark_tree(parsed))
+            try:
+                op = factory(
+                    use_target=False,
+                    min_length=10,
+                    max_examples=500,
+                    use_tree_metrics=True,
+                )
+                tree = op(tree, rng)
+            except Exception as e:
+                # If a mutation fails for any reason, stop mutating this individual
+                # and keep the latest valid tree.
+                print(f"Error during mutational generation step: {e}")
+                break
+
+        results.append(tree)
 
     return results
