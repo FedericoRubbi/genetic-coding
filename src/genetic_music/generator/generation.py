@@ -1532,6 +1532,70 @@ def _truncate_op_factory(
     return op
 
 
+def _stack_enrich_op_factory(
+    *,
+    use_target: bool = False,
+    min_length: int = 10,
+    max_examples: int = 500,
+    use_tree_metrics: bool = True,
+) -> MutationOp:
+    """
+    Mutation operator that enriches existing stack/cat-style list combinators
+    by appending additional randomly generated branches.
+
+    It targets nodes of the form::
+
+        control__cp_lists_playable
+          STACK/CAT token
+          control__cp_list_playable(<children...>)
+
+    and appends 1–3 new playable subtrees to the ``control__cp_list_playable``
+    children list, leaving the overall combinator and existing branches intact.
+    """
+    # Unused config parameters kept intentionally for future tuning
+    del use_target, min_length, max_examples, use_tree_metrics
+
+    def _collect_stack_nodes(root: TreeNode) -> list[tuple[TreeNode, TreeNode]]:
+        """Return (lists_node, list_node) pairs for all cp_lists_playable nodes."""
+        nodes: list[tuple[TreeNode, TreeNode]] = []
+
+        def _walk(node: TreeNode) -> None:
+            if node.op == "control__cp_lists_playable" and len(node.children) >= 2:
+                list_node = node.children[1]
+                if list_node.op == "control__cp_list_playable":
+                    nodes.append((node, list_node))
+            for child in node.children:
+                _walk(child)
+
+        _walk(root)
+        return nodes
+
+    def _enrich_once(root: TreeNode, rng: random.Random) -> TreeNode:
+        candidates = _collect_stack_nodes(root)
+        if not candidates:
+            return root
+
+        _, list_node = rng.choice(candidates)
+
+        # Decide how many new branches to add
+        n_new = rng.randint(1, 3)
+        new_branch_trees = generate_expressions(n_new)
+
+        for pt in new_branch_trees:
+            # Append the playable subtree root directly to the list
+            list_node.children.append(pt.root)
+
+        return root
+
+    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
+        # Operate on a clone to avoid mutating the input tree
+        new_root = _clone_treenode(tree.root)
+        new_root = _enrich_once(new_root, rng)
+        return PatternTree(root=new_root)
+
+    return op
+
+
 _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     # "subtree_replace": _subtree_replace_op_factory,
     # "stack_wrap": _stack_wrap_op_factory,
@@ -1545,6 +1609,7 @@ _MUTATION_OPERATOR_FACTORIES: Mapping[str, Callable[..., MutationOp]] = {
     # "striate": _striate_op_factory,
     # "terminal_substitution": _terminal_substitution_op_factory,
     "truncate": _truncate_op_factory,
+    # "stack_enrich": _stack_enrich_op_factory,
 }
 
 def mutate_pattern_tree(
