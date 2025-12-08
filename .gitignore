@@ -71,6 +71,9 @@ checkpoints/
 # Hypothesis
 .hypothesis/
 
+# Configuration (user-specific)
+config.yaml
+
 *.dotclear
 *.wav
 *.png

@@ -6,10 +6,10 @@ import random
 from dataclasses import dataclass
 from typing import Sequence, Tuple
 
-from genetic_music.generator.generation import (
-    mutate_pattern_tree,
-    _iter_nodes_with_paths,
-    _clone_with_replacement,
+from genetic_music.generator.generation import mutate_pattern_tree
+from genetic_music.generator.tree_helpers import (
+    iter_nodes_with_paths,
+    clone_with_replacement,
 )
 from genetic_music.tree.pattern_tree import PatternTree
 
@@ -35,10 +35,6 @@ class Genome:
         self,
         rate: float = 1.0,
         *,
-        use_target: bool = False,
-        min_length: int = 1,
-        max_examples: int = 50,
-        use_tree_metrics: bool = True,
         mutation_kinds: Sequence[str] | None = None,
     ) -> "Genome":
         """Return a mutated copy of this genome.
@@ -50,11 +46,6 @@ class Genome:
 
         Args:
             rate: Probability of applying mutation.
-            use_target: Whether to use target pattern information during
-                mutation.
-            min_length: Minimum length of generated patterns.
-            max_examples: Maximum number of examples to consider during mutation.
-            use_tree_metrics: Whether to use tree metrics during mutation.
             mutation_kinds: Sequence of mutation operator kinds to consider. If
                 ``None``, all available mutation operators are used. If not 
                 ``None``, only the specified mutation operators are considered. Check
@@ -66,11 +57,7 @@ class Genome:
 
         mutated_tree = mutate_pattern_tree(
             self.pattern_tree,
-            mutation_kinds=mutation_kinds, # by default all mutation kinds
-            use_target=use_target,
-            min_length=min_length,
-            max_examples=max_examples,
-            use_tree_metrics=use_tree_metrics,
+            mutation_kinds=mutation_kinds,  # by default all mutation kinds
         )
         # If nothing changed, keep fitness; otherwise reset so it is recomputed.
         if mutated_tree is self.pattern_tree:
@@ -85,8 +72,8 @@ class Genome:
         and swaps their subtrees.
         """
         # Get all nodes with paths
-        nodes_self = _iter_nodes_with_paths(self.pattern_tree.root)
-        nodes_other = _iter_nodes_with_paths(other.pattern_tree.root)
+        nodes_self = iter_nodes_with_paths(self.pattern_tree.root)
+        nodes_other = iter_nodes_with_paths(other.pattern_tree.root)
 
         # Group by op
         ops_self = {}
@@ -118,10 +105,10 @@ class Genome:
 
         # Swap subtrees
         # New self root: replace node at path_self with node_other
-        new_root_self = _clone_with_replacement(self.pattern_tree.root, path_self, node_other)
+        new_root_self = clone_with_replacement(self.pattern_tree.root, path_self, node_other)
 
         # New other root: replace node at path_other with node_self
-        new_root_other = _clone_with_replacement(other.pattern_tree.root, path_other, node_self)
+        new_root_other = clone_with_replacement(other.pattern_tree.root, path_other, node_self)
 
         # Return new Genomes
         return (

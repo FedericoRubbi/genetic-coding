@@ -13,7 +13,6 @@ from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
 from .common import (
-    MutationOp,
     NOTE_PATTERN_POOL,
     SCALE_INT_PATTERN_POOL,
     SCALE_NAME_POOL,
@@ -22,17 +21,8 @@ from .common import (
 )
 
 
-def terminal_substitution_op_factory(
-    *,
-    use_target: bool = False,
-    min_length: int = 10,
-    max_examples: int = 500,
-    use_tree_metrics: bool = True,
-) -> MutationOp:
+def terminal_substitution(tree: PatternTree, rng: random.Random) -> PatternTree:
     """Randomly substitute terminal musical values in-place."""
-
-    del use_target, min_length, max_examples, use_tree_metrics
-
     # Per-node mutation probabilities
     SOUND_PROB = 0.5
     NOTE_PROB = 0.5
@@ -81,15 +71,12 @@ def terminal_substitution_op_factory(
                 node.value = _choose_new_quoted(node.value, SCALE_INT_PATTERN_POOL, rng)
             return
 
-    def _walk(node: TreeNode, rng: random.Random) -> None:
+    def _walk(node: TreeNode) -> None:
         _maybe_substitute(node, rng)
         for child in node.children:
-            _walk(child, rng)
+            _walk(child)
 
-    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Work on a cloned tree to avoid mutating the input in-place
-        new_root = clone_treenode(tree.root)
-        _walk(new_root, rng)
-        return PatternTree(root=new_root)
-
-    return op
+    # Work on a cloned tree to avoid mutating the input in-place
+    new_root = clone_treenode(tree.root)
+    _walk(new_root)
+    return PatternTree(root=new_root)

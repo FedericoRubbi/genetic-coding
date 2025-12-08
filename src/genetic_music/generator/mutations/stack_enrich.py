@@ -10,8 +10,9 @@ import random
 
 from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
+from genetic_music.generator.seeds import random_seed_pattern
 
-from .common import MutationOp, clone_treenode
+from .common import clone_treenode
 
 
 def _collect_stack_nodes(root: TreeNode) -> list[tuple[TreeNode, TreeNode]]:
@@ -31,8 +32,6 @@ def _collect_stack_nodes(root: TreeNode) -> list[tuple[TreeNode, TreeNode]]:
 
 
 def _enrich_once(root: TreeNode, rng: random.Random) -> TreeNode:
-    from genetic_music.generator.generation import generate_expressions
-
     candidates = _collect_stack_nodes(root)
     if not candidates:
         return root
@@ -41,7 +40,7 @@ def _enrich_once(root: TreeNode, rng: random.Random) -> TreeNode:
 
     # Decide how many new branches to add
     n_new = rng.randint(1, 3)
-    new_branch_trees = generate_expressions(n_new)
+    new_branch_trees = [random_seed_pattern(rng) for _ in range(n_new)]
 
     for pt in new_branch_trees:
         # Append the playable subtree root directly to the list
@@ -50,21 +49,9 @@ def _enrich_once(root: TreeNode, rng: random.Random) -> TreeNode:
     return root
 
 
-def stack_enrich_op_factory(
-    *,
-    use_target: bool = False,
-    min_length: int = 10,
-    max_examples: int = 500,
-    use_tree_metrics: bool = True,
-) -> MutationOp:
-    """Factory for the stack-enrichment mutation operator."""
-
-    del use_target, min_length, max_examples, use_tree_metrics
-
-    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Operate on a clone to avoid mutating the input tree
-        new_root = clone_treenode(tree.root)
-        new_root = _enrich_once(new_root, rng)
-        return PatternTree(root=new_root)
-
-    return op
+def stack_enrich(tree: PatternTree, rng: random.Random) -> PatternTree:
+    """Apply stack-enrichment mutation to a pattern."""
+    # Operate on a clone to avoid mutating the input tree
+    new_root = clone_treenode(tree.root)
+    new_root = _enrich_once(new_root, rng)
+    return PatternTree(root=new_root)

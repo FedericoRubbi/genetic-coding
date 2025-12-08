@@ -14,6 +14,7 @@ from .tree.pattern_tree import PatternTree
 from .backend.backend import Backend
 from .genome.population import evolve_population
 from .codegen.tidal_codegen import to_tidal
+from .config import config, get_boot_tidal_path
 
 __all__ = [
     "Genome",
@@ -21,5 +22,7 @@ __all__ = [
     "Backend",
     "evolve_population",
     "to_tidal",
+    "config",
+    "get_boot_tidal_path",
 ]
 __version__ = "0.1.0"

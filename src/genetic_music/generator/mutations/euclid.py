@@ -11,7 +11,7 @@ import random
 from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
-from .common import MutationOp
+# MutationOp import removed - no longer needed
 
 
 EUCLID_TRANSFORMS: list[str] = [
@@ -23,105 +23,92 @@ EUCLID_TRANSFORMS: list[str] = [
 ]
 
 
-def euclid_op_factory(
-    *,
-    use_target: bool = False,
-    min_length: int = 10,
-    max_examples: int = 500,
-    use_tree_metrics: bool = True,
-) -> MutationOp:
-    """Tree-level ``euclid`` mutation operator."""
+def euclid_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
+    """Apply Euclidean rhythm mutation to a pattern."""
+    # Existing playable branch is the current root subtree.
+    base_branch = tree.root
 
-    # Unused config parameters kept for future tuning.
-    del use_target, min_length, max_examples, use_tree_metrics
+    # Choose pulses and steps.
+    step_choices = [8, 12, 16, 24, 32]
+    steps = rng.choice(step_choices)
+    pulses = rng.randint(1, steps)
 
-    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
-        # Existing playable branch is the current root subtree.
-        base_branch = tree.root
+    # Choose optional outer transformation.
+    transform = rng.choice(EUCLID_TRANSFORMS)
 
-        # Choose pulses and steps.
-        step_choices = [8, 12, 16, 24, 32]
-        steps = rng.choice(step_choices)
-        pulses = rng.randint(1, steps)
+    # Build Pattern Int literal nodes for pulses and steps, matching
+    # the structure produced by parsing e.g.
+    # ``euclid (3) (8) (s("bd"))``.
+    pulses_node = TreeNode(
+        op="control__pattern_int__int_literal",
+        children=[
+            TreeNode(op="control__pattern_int__INT", value=str(pulses)),
+        ],
+    )
+    steps_node = TreeNode(
+        op="control__pattern_int__int_literal",
+        children=[
+            TreeNode(op="control__pattern_int__INT", value=str(steps)),
+        ],
+    )
 
-        # Choose optional outer transformation.
-        transform = rng.choice(EUCLID_TRANSFORMS)
+    # Build the cp_euclid_playable subtree.
+    euclid_node = TreeNode(
+        op="control__cp_euclid_playable",
+        children=[
+            TreeNode(op="EUCLID", value="euclid"),
+            TreeNode(op="LPAR", value="("),
+            pulses_node,
+            TreeNode(op="RPAR", value=")"),
+            TreeNode(op="LPAR", value="("),
+            steps_node,
+            TreeNode(op="RPAR", value=")"),
+            TreeNode(op="LPAR", value="("),
+            base_branch,
+            TreeNode(op="RPAR", value=")"),
+        ],
+    )
 
-        # Build Pattern Int literal nodes for pulses and steps, matching
-        # the structure produced by parsing e.g.
-        # ``euclid (3) (8) (s("bd"))``.
-        pulses_node = TreeNode(
-            op="control__pattern_int__int_literal",
-            children=[
-                TreeNode(op="control__pattern_int__INT", value=str(pulses)),
-            ],
-        )
-        steps_node = TreeNode(
-            op="control__pattern_int__int_literal",
-            children=[
-                TreeNode(op="control__pattern_int__INT", value=str(steps)),
-            ],
-        )
+    # If no transform selected, the euclid node is already a playable term.
+    if transform == "":
+        return PatternTree(root=euclid_node)
 
-        # Build the cp_euclid_playable subtree.
-        euclid_node = TreeNode(
-            op="control__cp_euclid_playable",
-            children=[
-                TreeNode(op="EUCLID", value="euclid"),
-                TreeNode(op="LPAR", value="("),
-                pulses_node,
-                TreeNode(op="RPAR", value=")"),
-                TreeNode(op="LPAR", value="("),
-                steps_node,
-                TreeNode(op="RPAR", value=")"),
-                TreeNode(op="LPAR", value="("),
-                base_branch,
-                TreeNode(op="RPAR", value=")"),
-            ],
-        )
+    # Otherwise, wrap the euclid subtree in a prefix_cp-based
+    # cp_playable_term.
+    if transform == "rev":
+        prefix_children = [TreeNode(op="REV", value="rev")]
+    elif transform == "fast 2":
+        prefix_children = [
+            TreeNode(op="FAST", value="fast"),
+            TreeNode(op="control__pattern_time__INT", value="2"),
+        ]
+    elif transform == "slow 2":
+        prefix_children = [
+            TreeNode(op="SLOW", value="slow"),
+            TreeNode(op="control__pattern_time__INT", value="2"),
+        ]
+    elif transform == "iter 2":
+        prefix_children = [
+            TreeNode(op="ITER", value="iter"),
+            TreeNode(
+                op="control__pattern_int__int_literal",
+                children=[
+                    TreeNode(op="control__pattern_int__INT", value="2"),
+                ],
+            ),
+        ]
+    else:
+        # Fallback: if an unexpected transform string appears, ignore it.
+        return PatternTree(root=euclid_node)
 
-        # If no transform selected, the euclid node is already a playable term.
-        if transform == "":
-            return PatternTree(root=euclid_node)
+    prefix_node = TreeNode(
+        op="control__prefix_cp",
+        children=prefix_children,
+    )
 
-        # Otherwise, wrap the euclid subtree in a prefix_cp-based
-        # cp_playable_term.
-        if transform == "rev":
-            prefix_children = [TreeNode(op="REV", value="rev")]
-        elif transform == "fast 2":
-            prefix_children = [
-                TreeNode(op="FAST", value="fast"),
-                TreeNode(op="control__pattern_time__INT", value="2"),
-            ]
-        elif transform == "slow 2":
-            prefix_children = [
-                TreeNode(op="SLOW", value="slow"),
-                TreeNode(op="control__pattern_time__INT", value="2"),
-            ]
-        elif transform == "iter 2":
-            prefix_children = [
-                TreeNode(op="ITER", value="iter"),
-                TreeNode(
-                    op="control__pattern_int__int_literal",
-                    children=[
-                        TreeNode(op="control__pattern_int__INT", value="2"),
-                    ],
-                ),
-            ]
-        else:
-            # Fallback: if an unexpected transform string appears, ignore it.
-            return PatternTree(root=euclid_node)
+    new_root = TreeNode(
+        op="control__cp_playable_term",
+        children=[prefix_node, euclid_node],
+    )
 
-        prefix_node = TreeNode(
-            op="control__prefix_cp",
-            children=prefix_children,
-        )
-
-        new_root = TreeNode(
-            op="control__cp_playable_term",
-            children=[prefix_node, euclid_node],
-        )
-
-        return PatternTree(root=new_root)
-
-    return op
+    return PatternTree(root=new_root)

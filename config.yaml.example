@@ -1,0 +1,33 @@
+# Configuration file for genetic-music
+# Copy this file to config.yaml and update with your settings
+
+# TidalCycles configuration
+tidal:
+  # Path to your BootTidal.hs file
+  # Common locations:
+  #   - macOS (Intel): ~/.cabal/share/x86_64-osx-ghc-X.X.X/tidal-X.X.X/BootTidal.hs
+  #   - macOS (Apple Silicon): ~/.cabal/share/aarch64-osx-ghc-X.X.X/tidal-X.X.X/BootTidal.hs
+  #   - Linux: ~/.cabal/share/x86_64-linux-ghc-X.X.X/tidal-X.X.X/BootTidal.hs
+  #   - Windows: C:/Users/YourName/AppData/Roaming/cabal/share/x86_64-windows-ghc-X.X.X/tidal-X.X.X/BootTidal.hs
+  #
+  # You can use ~ for home directory, it will be expanded automatically
+  boot_file_path: "~/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
+
+# Backend configuration
+backend:
+  # GHCi command to use (default: "ghci")
+  ghci_cmd: "ghci"
+  
+  # SuperDirt orbit for rendering
+  orbit: 8
+  
+  # Dedicated Tidal stream number
+  stream: 12
+
+# Output paths
+output:
+  # Base directory for generated audio files
+  audio_dir: "data/outputs"
+  
+  # Base directory for evolution results
+  evolution_dir: "data/outputs/minimal_evolution"

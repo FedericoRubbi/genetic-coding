@@ -11,7 +11,7 @@ import random
 from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
-from .common import MutationOp
+# MutationOp import removed - no longer needed
 
 
 # Functions used to create valid "mask" patterns for the ``struct``
@@ -21,7 +21,7 @@ MASK_GENERATORS = [
     # lambda rng: f"t({rng.randint(2,8)},{rng.choice([8,12,16])})",
     # Boolean string mask (e.g. "t f t f f t t f f")
     lambda rng: '"' + " ".join(
-        rng.choice(["t", "f"]) for _ in range(rng.randint(4, 16))
+    rng.choice(["t", "f"]) for _ in range(rng.randint(4, 16))
     )
     + '"',
     # Binary number mask (e.g. "1 0 1 1 0 0 1") – not yet in grammar.
@@ -29,14 +29,8 @@ MASK_GENERATORS = [
 ]
 
 
-def struct_op_factory(
-    *,
-    use_target: bool,
-    min_length: int,
-    max_examples: int,
-    use_tree_metrics: bool,
-) -> MutationOp:
-    """Tree-level ``struct`` mutation operator.
+def struct_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
+    """Apply struct/mask mutation to a pattern.
 
     This implementation works purely at the tree level:
 
@@ -49,51 +43,44 @@ def struct_op_factory(
 
     The resulting root has the form::
 
-        control__cp_mask_playable
-          STRUCT "struct"
-          LPAR "("
-          control__pattern_bool__bool_literal
-            control__pattern_bool__BOOL "t f ..."
-          RPAR ")"
-          LPAR "("
-          <original-playable-root>
-          RPAR ")"
+    control__cp_mask_playable
+      STRUCT "struct"
+      LPAR "("
+      control__pattern_bool__bool_literal
+        control__pattern_bool__BOOL "t f ..."
+      RPAR ")"
+      LPAR "("
+      <original-playable-root>
+      RPAR ")"
     """
-
-    # Unused config parameters kept for future tuning.
-    del use_target, min_length, max_examples, use_tree_metrics
-
-    def op(tree: PatternTree, rng: random.Random) -> PatternTree:
         # 1. Generate mask string (already quoted, e.g. '"t f t f"').
-        mask_str = rng.choice(MASK_GENERATORS)(rng)
+    mask_str = rng.choice(MASK_GENERATORS)(rng)
 
         # 2. Build the pattern_bool subtree for the mask.
-        mask_node = TreeNode(
-            op="control__pattern_bool__bool_literal",
-            children=[
-                TreeNode(op="control__pattern_bool__BOOL", value=mask_str),
-            ],
-        )
+    mask_node = TreeNode(
+        op="control__pattern_bool__bool_literal",
+        children=[
+            TreeNode(op="control__pattern_bool__BOOL", value=mask_str),
+        ],
+    )
 
         # 3. Existing tree root is already a playable term, embed it
         # directly as the inner playable.
-        inner_playable = tree.root
+    inner_playable = tree.root
 
-        # 4. Build the cp_mask_playable root node that wraps the existing
-        # pattern.
-        new_root = TreeNode(
-            op="control__cp_mask_playable",
-            children=[
-                TreeNode(op="STRUCT", value="struct"),
-                TreeNode(op="LPAR", value="("),
-                mask_node,
-                TreeNode(op="RPAR", value=")"),
-                TreeNode(op="LPAR", value="("),
-                inner_playable,
-                TreeNode(op="RPAR", value=")"),
-            ],
-        )
+    # 4. Build the cp_mask_playable root node that wraps the existing
+    # pattern.
+    new_root = TreeNode(
+    op="control__cp_mask_playable",
+    children=[
+        TreeNode(op="STRUCT", value="struct"),
+        TreeNode(op="LPAR", value="("),
+        mask_node,
+        TreeNode(op="RPAR", value=")"),
+        TreeNode(op="LPAR", value="("),
+        inner_playable,
+        TreeNode(op="RPAR", value=")"),
+    ],
+    )
 
-        return PatternTree(root=new_root)
-
-    return op
+    return PatternTree(root=new_root)
