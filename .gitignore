@@ -77,3 +77,11 @@ config.yaml
 *.dotclear
 *.wav
 *.png
+
+# Report
+report/report.pdf
+report/report.aux
+report/report.fls
+report/report.log
+report/report.fdb_latexmk
+report/report.synctex.gz
