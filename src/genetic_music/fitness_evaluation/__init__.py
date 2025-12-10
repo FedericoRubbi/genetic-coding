@@ -20,11 +20,11 @@ From :mod:`.fitness_evaluation`:
 from .fitness_evaluation import (
     DEFAULT_WEIGHTS,
     compute_fitness,
-    dominates,
+    # dominates,
     evaluate_genome_fitness,
     feature_similarity,
     get_fitness,
-    pareto_front,
+    # pareto_front,
 )
 
 __all__ = [
@@ -33,6 +33,6 @@ __all__ = [
     "feature_similarity",
     "compute_fitness",
     "DEFAULT_WEIGHTS",
-    "dominates",
-    "pareto_front",
+    # "dominates",
+    # "pareto_front",
 ]

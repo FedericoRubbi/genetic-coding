@@ -8,35 +8,11 @@ by mutation operators.
 """
 
 import random
-from typing import List
 
 from genetic_music.tree.pattern_tree import PatternTree
 
 from .parser import parse_control_pattern
-
-# ---------------------------------------------------------------------------
-# Shared finite musical value pools
-# ---------------------------------------------------------------------------
-
-SOUND_POOL: List[str] = ["bd", "sn", "hh", "cp", "tabla", "arpy"]
-
-NOTE_PATTERN_POOL: List[str] = [
-    "0",
-    "0 7",
-    "0 4 7",
-    "0 2 4 5 7 9 11",
-    "0 .. 11",
-    "-12 .. 12",
-    "24 36 48",
-    "60",
-    "60 64 67",
-    "0.5",
-    "1.5",
-]
-
-SCALE_NAME_POOL: List[str] = ["major", "minor", "dorian", "ritusen"]
-
-SCALE_INT_PATTERN_POOL: List[str] = ["0", "0 2 4", "0 .. 7"]
+from .mutations.common import SOUND_POOL, NOTE_PATTERN_GENERATOR
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +36,7 @@ def random_seed_pattern(rng: random.Random) -> PatternTree:
         code = f's("{sound}")'
     elif seed_kind == "note":
         sound = rng.choice(SOUND_POOL)
-        note_pattern = rng.choice(NOTE_PATTERN_POOL)
+        note_pattern = NOTE_PATTERN_GENERATOR(rng)
         code = f's("{sound}") # n "{note_pattern}"'
     else:  # "stack"
         # 2–3 simple sound atoms stacked together

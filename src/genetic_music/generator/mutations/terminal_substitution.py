@@ -13,8 +13,8 @@ from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
 from .common import (
-    NOTE_PATTERN_POOL,
-    SCALE_INT_PATTERN_POOL,
+    NOTE_PATTERN_GENERATOR,
+    SCALE_INT_PATTERN_GENERATOR,
     SCALE_NAME_POOL,
     SOUND_POOL,
     clone_treenode,
@@ -56,7 +56,9 @@ def terminal_substitution(tree: PatternTree, rng: random.Random) -> PatternTree:
         # Note patterns: control__STRING (used under cp_note_atom)
         if op == "control__STRING":
             if rng.random() < NOTE_PROB:
-                node.value = _choose_new_quoted(node.value, NOTE_PATTERN_POOL, rng)
+                # Generate a fresh single-octave note pattern string.
+                new_pattern = NOTE_PATTERN_GENERATOR(rng)
+                node.value = f'"{new_pattern}"'
             return
 
         # Scale names: control__pattern_note__pattern_string_scale__SCALE_STRING
@@ -68,7 +70,9 @@ def terminal_substitution(tree: PatternTree, rng: random.Random) -> PatternTree:
         # Scale degree patterns: control__pattern_note__pattern_int__STRING
         if op == "control__pattern_note__pattern_int__STRING":
             if rng.random() < SCALE_PROB:
-                node.value = _choose_new_quoted(node.value, SCALE_INT_PATTERN_POOL, rng)
+                # Generate a fresh scale-degree pattern string.
+                new_pattern = SCALE_INT_PATTERN_GENERATOR(rng)
+                node.value = f'"{new_pattern}"'
             return
 
     def _walk(node: TreeNode) -> None:
