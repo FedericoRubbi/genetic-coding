@@ -27,6 +27,17 @@ from .truncate import truncate
 # Only "truncate" is enabled by default to preserve prior behaviour; add
 # more entries here to make additional operators available by name.
 MUTATION_OPERATORS: Mapping[str, MutationOp] = {
+    "stack_wrap": stack_wrap,
+    "overlay_wrap": overlay_wrap,
+    "append_pattern": append_pattern,
+    "scale_wrap": scale_wrap,
+    "note_wrap": note_wrap,
+    "euclid_wrap": euclid_wrap,
+    "struct_wrap": struct_wrap,
+    "striate_wrap": striate_wrap,
+    "speed_change": speed_change,
+    "stack_enrich": stack_enrich,
+    "terminal_substitution": terminal_substitution,
     "truncate": truncate,
 }
 
