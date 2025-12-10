@@ -9,7 +9,7 @@ from pathlib import Path
 # --- Internal imports, updated for new package layout ---
 from genetic_music.genome.genome import Genome
 from genetic_music.genome.population import evolve_population
-from genetic_music.generator.generation import generate_expressions_targeted
+from genetic_music.generator import generate_expressions_mutational
 from genetic_music.backend.backend import Backend
 from genetic_music.codegen.tidal_codegen import to_tidal
 from genetic_music.fitness_evaluation.fitness_evaluation import get_fitness
@@ -53,11 +53,18 @@ def main():
     # 1. Initialize backend for audio playback and recording
     # -------------------------------------------------------------------------
     print(f"Current working directory: {Path.cwd()}")
-    BOOT_TIDAL = os.path.expanduser(
-        "/Users/jiechen/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
-    )
-    if not os.path.exists(BOOT_TIDAL):
-        print("Please set the correct path to your BootTidal.hs file!")
+    
+    # Load BootTidal path from config
+    from genetic_music.config import get_boot_tidal_path
+    
+    try:
+        BOOT_TIDAL = get_boot_tidal_path()
+        if not BOOT_TIDAL:
+            print("ERROR: BootTidal.hs path not configured!")
+            print("Please create a config.yaml file (see config.yaml.example) and set tidal.boot_file_path")
+            return
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}")
         return
 
     backend = Backend(
@@ -75,8 +82,8 @@ def main():
     # -------------------------------------------------------------------------
     # 3. Initial population (PatternTree-based genomes)
     # -------------------------------------------------------------------------
-    pop_size = 10
-    expressions = generate_expressions_targeted(pop_size)
+    pop_size = 3
+    expressions = generate_expressions_mutational(pop_size)
     population = [Genome(pattern_tree=expression) for expression in expressions]
 
     print("\nInitial Population:")
@@ -93,9 +100,7 @@ def main():
     # -------------------------------------------------------------------------
 
     evolved = population
-    for _ in range(10):
-        # if _ != 0:
-        #     continue
+    for _ in range(3):
         evolved = evolve_population(
             population=evolved,
             fitness_func=get_fitness,
@@ -103,24 +108,11 @@ def main():
             elitism=0,
         )
 
-
-
-        # -------------------------------------------------------------------------
-        # 5. Show best pattern and save a WAV file
-        # -------------------------------------------------------------------------
         best = max(evolved, key=lambda g: g.fitness)
-
         print(f"Evolved population size: {len(evolved)}")
-
-        # Quick sanity check: show a mutated variant of the best genome
-        mutated_example = best.mutate(
-            rate=1.0,
-            mutation_kinds=("stack_wrap",),
-        )
+        mutated_example = best.mutate(rate=1.0)
         print("\nMutated variant of best individual (sanity check):")
         print("-" * 50)
-        # print(f"Original tree: {best.pattern_tree}")
-        # print(f"Mutated tree:  {mutated_example.pattern_tree}")
         print(f"Original Tidal: {to_tidal(best.pattern_tree)}")
         print(f"Mutated Tidal:  {to_tidal(mutated_example.pattern_tree)}")
 
