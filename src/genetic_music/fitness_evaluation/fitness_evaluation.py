@@ -266,58 +266,58 @@ def compute_fitness(
     return fitness, sims
 
 # ---------------------------------------------------------------------------
-# Multi-objective optimization helpers
+# Multi-objective optimization helpers: FOR FUTURE DEVELOPMENT
 # ---------------------------------------------------------------------------
-
-
-def dominates(a: Dict[str, float], b: Dict[str, float]) -> bool:
-    """Check if candidate a dominates candidate b.
-
-    A dominates B if A is >= B for all objectives and > B for at least one.
-
-    Parameters
-    ----------
-    a, b:
-        Dictionaries of objective values.
-
-    Returns
-    -------
-    bool
-        True if a dominates b.
-    """
-
-    better_or_equal = all(a[k] >= b[k] for k in a)
-    strictly_better = any(a[k] > b[k] for k in a)
-
-    return better_or_equal and strictly_better
-
-
-def pareto_front(
-    candidates: list[Dict[str, float]]
-) -> list[Dict[str, float]]:
-    """Compute the Pareto front from a list of candidates.
-
-    Parameters
-    ----------
-    candidates:
-        List of candidates, each represented as a dictionary of objectives.
-
-    Returns
-    -------
-    list[Dict[str, float]]
-        Non-dominated set (Pareto front).
-    """
-
-    front: list[Dict[str, float]] = []
-    for i, a in enumerate(candidates):
-        dominated = False
-        for j, b in enumerate(candidates):
-            if i != j and dominates(b, a):
-                dominated = True
-                break
-        if not dominated:
-            front.append(a)
-    return front
+#
+#
+# def dominates(a: Dict[str, float], b: Dict[str, float]) -> bool:
+#     """Check if candidate a dominates candidate b.
+#
+#     A dominates B if A is >= B for all objectives and > B for at least one.
+#
+#     Parameters
+#     ----------
+#     a, b:
+#         Dictionaries of objective values.
+#
+#     Returns
+#     -------
+#     bool
+#         True if a dominates b.
+#     """
+#
+#     better_or_equal = all(a[k] >= b[k] for k in a)
+#     strictly_better = any(a[k] > b[k] for k in a)
+#
+#     return better_or_equal and strictly_better
+#
+#
+# def pareto_front(
+#     candidates: list[Dict[str, float]]
+# ) -> list[Dict[str, float]]:
+#     """Compute the Pareto front from a list of candidates.
+#
+#     Parameters
+#     ----------
+#     candidates:
+#         List of candidates, each represented as a dictionary of objectives.
+#
+#     Returns
+#     -------
+#     list[Dict[str, float]]
+#         Non-dominated set (Pareto front).
+#     """
+#
+#     front: list[Dict[str, float]] = []
+#     for i, a in enumerate(candidates):
+#         dominated = False
+#         for j, b in enumerate(candidates):
+#             if i != j and dominates(b, a):
+#                 dominated = True
+#                 break
+#         if not dominated:
+#             front.append(a)
+#     return front
 
 # ---------------------------------------------------------------------------
 # Genome fitness evaluation
