@@ -11,7 +11,7 @@ import random
 from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
-from .common import NOTE_PATTERN_POOL, SOUND_POOL
+from .common import NOTE_PATTERN_GENERATOR, SOUND_POOL
 
 
 NOTE_FUNCTIONS = ["n", "note"]
@@ -23,7 +23,7 @@ def note_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
 
     # Choose components
     note_func = rng.choice(NOTE_FUNCTIONS)
-    note_pattern = rng.choice(NOTE_PATTERN_POOL)
+    note_pattern = NOTE_PATTERN_GENERATOR(rng)
     sound = rng.choice(SOUND_POOL)
 
     # Detect if base pattern already has sound by checking root op type.

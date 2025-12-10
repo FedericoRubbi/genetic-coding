@@ -434,5 +434,5 @@ def get_fitness(genome: Genome) -> float:
         backend=backend,
         target_audio_path=target,
         candidate_output_dir=candidate_dir,
-        duration=8.0,
+        duration=4.0,
     )

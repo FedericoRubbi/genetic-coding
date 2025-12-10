@@ -12,7 +12,7 @@ from genetic_music.tree.node import TreeNode
 from genetic_music.tree.pattern_tree import PatternTree
 
 from .common import (
-    SCALE_INT_PATTERN_POOL,
+    SCALE_INT_PATTERN_GENERATOR,
     SCALE_NAME_POOL,
     SOUND_POOL,
 )
@@ -36,7 +36,7 @@ def scale_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
     """
     base_branch = tree.root
     scale_name = rng.choice(SCALE_NAME_POOL)
-    int_pattern = rng.choice(SCALE_INT_PATTERN_POOL)
+    int_pattern = SCALE_INT_PATTERN_GENERATOR(rng)
     sound = rng.choice(SOUND_POOL)
 
         # 1. Build the scale constructor: n(scale "scale_name" "int_pattern")

@@ -1,6 +1,7 @@
 # Target-driven Genetic Programming of Music Patterns with TidalCycles
 
-*A Bio-Inspired AI Project for Automatic Music Generation*
+*Project for Bio-Inspired AI course, Univeristy of Trento* <br>
+*Authors: Federico Rubbi, Jie Chen, Stefano Camposilvan, Valeria Miroslava Mayora Barcenas*
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
