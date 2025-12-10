@@ -16,6 +16,7 @@ from pydub import AudioSegment
 from genetic_music.backend.backend import Backend
 from genetic_music.codegen.tidal_codegen import to_tidal
 from genetic_music.genome.genome import Genome
+from librosa.feature.rhythm import tempo as tempo_fn
 
 # ---------------------------------------------------------------------------
 # Audio format utilities
@@ -199,8 +200,8 @@ def feature_similarity(
     features["rms"] = cosine_matrix_similarity(rms1, rms2)
 
     # Tempo: to match BPM
-    tempo1 = librosa.beat.tempo(y=y1, sr=sr1)[0]
-    tempo2 = librosa.beat.tempo(y=y2, sr=sr2)[0]
+    tempo1 = tempo_fn(y=y1, sr=sr1)[0]
+    tempo2 = tempo_fn(y=y2, sr=sr2)[0]
     features["tempo"] = float(
         np.clip(1 - abs(tempo1 - tempo2) / max(tempo1, tempo2), 0, 1)
     )
