@@ -61,7 +61,7 @@ def parse_control_pattern(text: str) -> Tree:
 def _needs_space(prev: Token, cur: Token) -> bool:
     """Heuristic for inserting spaces between tokens for readability."""
 
-    if prev.value.endswith("\"") or cur.value.startswith("\""):
+    if prev.value.endswith('"') or cur.value.startswith('"'):
         return False
     if prev.value and prev.value[-1] in "([{|,":
         return False

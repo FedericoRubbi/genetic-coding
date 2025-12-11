@@ -19,11 +19,12 @@ class TidalGhci:
     """
     Launches a GHCi process, loads BootTidal.hs, and lets you eval Tidal code.
     """
+
     def __init__(self, boot_tidal_path: str, ghci_cmd: str = "ghci"):
         self.boot_tidal_path = Path(boot_tidal_path)
         if not self.boot_tidal_path.exists():
             raise FileNotFoundError(f"BootTidal.hs not found: {boot_tidal_path}")
-        
+
         # Buffer tracking for debugging
         self._total_bytes_read = 0
         self._eval_count = 0
@@ -44,7 +45,7 @@ class TidalGhci:
         )
 
         # Load BootTidal.hs (standard way editors do)
-        self._write(f':script {self._quote(self.boot_tidal_path)}')
+        self._write(f":script {self._quote(self.boot_tidal_path)}")
         # Optional: set a distinct prompt so we can detect readiness.
         # IMPORTANT: we deliberately avoid blocking forever waiting for the
         # prompt token here. In some environments BootTidal or user config can
@@ -71,24 +72,24 @@ class TidalGhci:
 
     def _read_available(self, timeout: float = 0.2, debug: bool = False) -> str:
         """Best-effort, non-blocking read to drain output.
-        
+
         This is CRITICAL to prevent pipe deadlock. GHCi writes output
         to stdout, and if we don't read it, the pipe buffer fills up
         (typically 65KB) and GHCi blocks on write operations.
         """
         if self.proc.stdout is None:
             return ""
-            
+
         out = []
         end = time.time() + timeout
         bytes_read = 0
-        
+
         # Use select on Unix-like systems for efficient non-blocking I/O
-        if hasattr(select, 'select'):
+        if hasattr(select, "select"):
             while time.time() < end:
                 if self.proc.poll() is not None:
                     break
-                    
+
                 # Check if data is available with a short timeout
                 ready, _, _ = select.select([self.proc.stdout], [], [], 0.01)
                 if ready:
@@ -124,14 +125,16 @@ class TidalGhci:
                     if debug:
                         print(f"[GHCi-Buffer] Error reading: {e}")
                     break
-        
+
         result = "".join(out)
         self._total_bytes_read += bytes_read
-        
+
         if debug and bytes_read > 0:
-            preview = result[:100].replace('\n', '\\n')
-            print(f"[GHCi-Buffer] Read {bytes_read} bytes (total: {self._total_bytes_read}): {preview}...")
-                    
+            preview = result[:100].replace("\n", "\\n")
+            print(
+                f"[GHCi-Buffer] Read {bytes_read} bytes (total: {self._total_bytes_read}): {preview}..."
+            )
+
         return result
 
     def _wait_for(self, token: str, timeout: float = 10.0):
@@ -156,20 +159,22 @@ class TidalGhci:
           tidal.eval('d12 $ s "bd sd" # orbit 8')
         """
         self._eval_count += 1
-        
+
         if debug:
-            code_preview = code[:60].replace('\n', ' ')
+            code_preview = code[:60].replace("\n", " ")
             print(f"[GHCi-Eval #{self._eval_count}] Sending: {code_preview}...")
-        
+
         self._write(code)
-        
+
         # CRITICAL: Drain output buffer to prevent pipe deadlock
         # Without this, after ~10 evaluations the stdout buffer fills up
         # and GHCi blocks, causing the entire process to hang
         self._read_available(timeout=0.1, debug=debug)
-        
+
         if debug:
-            print(f"[GHCi-Eval #{self._eval_count}] After drain: {self._total_bytes_read} total bytes read")
+            print(
+                f"[GHCi-Eval #{self._eval_count}] After drain: {self._total_bytes_read} total bytes read"
+            )
 
     def silence_stream(self, stream: int, debug: bool = False):
         self.eval(f"d{stream} silence", debug=debug)
@@ -191,14 +196,15 @@ class Backend:
     High-level API: record a generated Tidal pattern to a .wav and (optionally) play it back.
     - Plays via Tidal (GHCi), records via SC (OSC).
     """
+
     def __init__(
         self,
         boot_tidal_path: str,
         ghci_cmd: str = "ghci",
         sc_host: str = "127.0.0.1",
         sc_port: int = 57120,
-        orbit: int = 8,     # SuperDirt orbit to render on
-        stream: int = 12,   # Tidal stream d1..d16 (choose a reserved one)
+        orbit: int = 8,  # SuperDirt orbit to render on
+        stream: int = 12,  # Tidal stream d1..d16 (choose a reserved one)
         debug_buffer: bool = None,  # Enable buffer debugging
     ):
         self.tidal = TidalGhci(boot_tidal_path=boot_tidal_path, ghci_cmd=ghci_cmd)
@@ -206,12 +212,14 @@ class Backend:
         self.orbit = int(orbit)
         self.stream = int(stream)
         self.out_dir = Path("data/outputs")
-        
+
         # Check environment variable or use parameter
         if debug_buffer is None:
-            debug_buffer = os.environ.get('GHCI_DEBUG_BUFFER', 'false').lower() == 'true'
+            debug_buffer = (
+                os.environ.get("GHCI_DEBUG_BUFFER", "false").lower() == "true"
+            )
         self.debug_buffer = debug_buffer
-        
+
         if self.debug_buffer:
             print(f"[Backend] Buffer debugging ENABLED")
 
@@ -240,8 +248,10 @@ class Backend:
         """
         # Check if GHCi process is still alive
         if self.tidal.proc.poll() is not None:
-            raise RuntimeError(f"GHCi process has died (exit code: {self.tidal.proc.poll()})")
-        
+            raise RuntimeError(
+                f"GHCi process has died (exit code: {self.tidal.proc.poll()})"
+            )
+
         if output_path is None:
             output_path = self.out_dir / f"best_pattern_{int(time.time())}.wav"
         else:
@@ -258,11 +268,11 @@ class Backend:
             self._sc_record_start(output_path, duration)
         except Exception as e:
             raise RuntimeError(f"Failed to start SC recording: {e}")
-        
+
         time.sleep(0.25)
 
         # 2) Evaluate Tidal code
-        code = f'd{self.stream} $ ({rhs_pattern_expr}) # orbit {self.orbit}'
+        code = f"d{self.stream} $ ({rhs_pattern_expr}) # orbit {self.orbit}"
         try:
             self.tidal.eval(code, debug=self.debug_buffer)
         except Exception as e:
@@ -283,9 +293,11 @@ class Backend:
         max_wait_time = 5.0
         wait_start = time.time()
         file_ready = False
-        
+
         for _ in range(100):  # Check up to 100 times (5 seconds at 0.05s each)
-            if output_path.exists() and output_path.stat().st_size > 2000:  # >2KB: not a header-only file
+            if (
+                output_path.exists() and output_path.stat().st_size > 2000
+            ):  # >2KB: not a header-only file
                 file_ready = True
                 break
             if time.time() - wait_start > max_wait_time:
@@ -293,12 +305,16 @@ class Backend:
             time.sleep(0.05)
 
         if not file_ready:
-            print(f"[Backend] WARNING: Audio file not ready after {max_wait_time}s: {output_path}")
+            print(
+                f"[Backend] WARNING: Audio file not ready after {max_wait_time}s: {output_path}"
+            )
             # Still return the path, but caller should check file existence
         else:
             wait_duration = time.time() - wait_start
-            print(f"[Backend] Audio recorded to {output_path} (wait: {wait_duration:.2f}s)")
-        
+            print(
+                f"[Backend] Audio recorded to {output_path} (wait: {wait_duration:.2f}s)"
+            )
+
         if playback_after:
             self.play_file(output_path)
 
@@ -316,10 +332,14 @@ class Backend:
                 subprocess.run(["afplay", str(path)], check=False)
             elif system == "Windows":
                 import winsound
+
                 winsound.PlaySound(str(path), winsound.SND_FILENAME)
             else:
-                for cmd in (["aplay", str(path)], ["paplay", str(path)],
-                            ["ffplay", "-nodisp", "-autoexit", str(path)]):
+                for cmd in (
+                    ["aplay", str(path)],
+                    ["paplay", str(path)],
+                    ["ffplay", "-nodisp", "-autoexit", str(path)],
+                ):
                     try:
                         subprocess.run(cmd, check=False)
                         break

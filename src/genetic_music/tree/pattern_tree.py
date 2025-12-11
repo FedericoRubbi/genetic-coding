@@ -28,7 +28,9 @@ def _lark_to_treenode(node: LarkNode) -> TreeNode:
       type and ``value`` to the token value.
     """
     if isinstance(node, Tree):
-        children = [_lark_to_treenode(child) for child in node.children if child is not None]
+        children = [
+            _lark_to_treenode(child) for child in node.children if child is not None
+        ]
         return TreeNode(op=str(node.data), children=children)
 
     if isinstance(node, Token):
@@ -107,7 +109,9 @@ class PatternTree:
         def _to_lark(node: TreeNode) -> LarkNode:
             # Internal nodes: always Trees with recursively converted children.
             if node.children:
-                return Tree[Token](node.op, [_to_lark(child) for child in node.children])
+                return Tree[Token](
+                    node.op, [_to_lark(child) for child in node.children]
+                )
 
             # Leaf with a concrete value: this came from a Token.
             if node.value is not None:
@@ -117,6 +121,3 @@ class PatternTree:
             return Tree[Any](node.op, [])
 
         return _to_lark(self.root)  # type: ignore[return-value]
-
-
-

@@ -47,7 +47,7 @@ class Genome:
         Args:
             rate: Probability of applying mutation.
             mutation_kinds: Sequence of mutation operator kinds to consider. If
-                ``None``, all available mutation operators are used. If not 
+                ``None``, all available mutation operators are used. If not
                 ``None``, only the specified mutation operators are considered. Check
                 the documentation of ``mutate_pattern_tree`` for valid kinds.
         """
@@ -105,10 +105,14 @@ class Genome:
 
         # Swap subtrees
         # New self root: replace node at path_self with node_other
-        new_root_self = clone_with_replacement(self.pattern_tree.root, path_self, node_other)
+        new_root_self = clone_with_replacement(
+            self.pattern_tree.root, path_self, node_other
+        )
 
         # New other root: replace node at path_other with node_self
-        new_root_other = clone_with_replacement(other.pattern_tree.root, path_other, node_self)
+        new_root_other = clone_with_replacement(
+            other.pattern_tree.root, path_other, node_self
+        )
 
         # Return new Genomes
         return (

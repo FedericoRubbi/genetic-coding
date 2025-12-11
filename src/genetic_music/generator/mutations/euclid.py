@@ -15,8 +15,8 @@ from genetic_music.tree.pattern_tree import PatternTree
 
 
 EUCLID_TRANSFORMS: list[str] = [
-    "",        # No transformation
-    "rev",     # Reverses the pattern in time
+    "",  # No transformation
+    "rev",  # Reverses the pattern in time
     "fast 2",  # Plays the pattern twice as fast
     "slow 2",  # Plays the pattern at half speed
     "iter 2",  # Iterates pattern twice within the same cycle

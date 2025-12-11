@@ -4,15 +4,16 @@
 from dataclasses import dataclass, field
 from typing import Any, List
 
+
 @dataclass
 class TreeNode:
     op: str
-    children: List['TreeNode'] = field(default_factory=list)
+    children: List["TreeNode"] = field(default_factory=list)
     value: Any = None
 
     def is_leaf(self) -> bool:
         return not self.children
-    
+
     def depth(self) -> int:
         """Calculate tree depth."""
         if self.is_leaf():

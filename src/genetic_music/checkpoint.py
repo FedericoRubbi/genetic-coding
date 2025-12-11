@@ -80,4 +80,3 @@ def load_checkpoint(filepath: Union[str, Path]) -> Tuple[int, List[Genome], Any]
         random.setstate(data["rng_state"])
 
     return data["generation"], data["population"], data.get("extra_data", {})
-

@@ -39,7 +39,7 @@ def scale_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
     int_pattern = SCALE_INT_PATTERN_GENERATOR(rng)
     sound = rng.choice(SOUND_POOL)
 
-        # 1. Build the scale constructor: n(scale "scale_name" "int_pattern")
+    # 1. Build the scale constructor: n(scale "scale_name" "int_pattern")
     scale_literal_node = TreeNode(
         op="control__pattern_note__pattern_string_scale__scale_literal",
         children=[
@@ -76,7 +76,7 @@ def scale_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
         ],
     )
 
-        # 2. Build the sound atom: s("sound")
+    # 2. Build the sound atom: s("sound")
     sound_atom_node = TreeNode(
         op="control__cp_sound_atom",
         children=[
@@ -95,7 +95,7 @@ def scale_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
         ],
     )
 
-        # 3. Build infix operators (OP_HASH)
+    # 3. Build infix operators (OP_HASH)
     hash_op_1 = TreeNode(
         op="control__cp_infix_op",
         children=[TreeNode(op="control__OP_HASH", value="#")],
@@ -108,14 +108,14 @@ def scale_wrap(tree: PatternTree, rng: random.Random) -> PatternTree:
 
     # 4. Build the control_pattern root with left-associative infix chain
     new_root = TreeNode(
-    op="control_pattern",
-    children=[
-        base_branch,
-        hash_op_1,
-        note_atom_node,
-        hash_op_2,
-        sound_atom_node,
-    ],
+        op="control_pattern",
+        children=[
+            base_branch,
+            hash_op_1,
+            note_atom_node,
+            hash_op_2,
+            sound_atom_node,
+        ],
     )
 
     return PatternTree(root=new_root)

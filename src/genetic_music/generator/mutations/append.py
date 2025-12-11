@@ -63,7 +63,7 @@ def append_pattern(tree: PatternTree, rng: random.Random) -> PatternTree:
         children=[head_token],
     )
 
-        # Build the cp_playable_term root that applies the combinator.
+    # Build the cp_playable_term root that applies the combinator.
     new_root = TreeNode(
         op="control__cp_playable_term",
         children=[binary_head, left, right],

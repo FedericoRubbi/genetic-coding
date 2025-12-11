@@ -37,6 +37,7 @@ def _timeout_handler(signum, frame):
         f"Fitness evaluation exceeded time limit (signal={signum})"
     )
 
+
 # ---------------------------------------------------------------------------
 # Audio format utilities
 # ---------------------------------------------------------------------------
@@ -71,14 +72,13 @@ def ensure_wav(path: str | os.PathLike) -> str:
 
     return wav_path
 
+
 # ---------------------------------------------------------------------------
 # Feature similarity functions
 # ---------------------------------------------------------------------------
 
 
-def cosine_similarity(
-    a: np.ndarray, b: np.ndarray, eps: float = 1e-10
-) -> float:
+def cosine_similarity(a: np.ndarray, b: np.ndarray, eps: float = 1e-10) -> float:
     """Compute the cosine similarity between two vectors.
 
     Returns 0 if either vector is near-silent.
@@ -135,6 +135,7 @@ def cosine_matrix_similarity(
     ]
 
     return float(np.mean(sims)) if sims else 0.0
+
 
 def fft_similarity(sig1: np.ndarray, sig2: np.ndarray) -> float:
     """Compare two waveforms in frequency domain (timbre, energy distribution).
@@ -252,12 +253,12 @@ def feature_similarity(
 # ---------------------------------------------------------------------------
 
 DEFAULT_WEIGHTS: Dict[str, float] = {
-    "mfcc": 0.25,    # timbre
+    "mfcc": 0.25,  # timbre
     "chroma": 0.25,  # harmony
     "rhythm": 0.15,  # groove
-    "fft": 0.10,     # general spectrum
-    "rms": 0.10,     # dynamics
-    "tempo": 0.10,   # beat alignment
+    "fft": 0.10,  # general spectrum
+    "rms": 0.10,  # dynamics
+    "tempo": 0.10,  # beat alignment
     "melody": 0.05,  # pitch contour
 }
 
@@ -294,6 +295,7 @@ def compute_fitness(
     fitness = sum(weights[k] * sims.get(k, 0) for k in weights.keys())
 
     return fitness, sims
+
 
 # ---------------------------------------------------------------------------
 # Multi-objective optimization helpers: FOR FUTURE DEVELOPMENT
@@ -397,6 +399,7 @@ def evaluate_genome_fitness(
     # Use unique filename to avoid file contention/locking issues
     # Include timestamp and random component for uniqueness
     import random
+
     unique_id = f"{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
     candidate_output_path = os.path.join(
         candidate_output_dir, f"candidate_{unique_id}.wav"

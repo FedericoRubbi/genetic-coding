@@ -41,10 +41,14 @@ PLAYABLE_OPS = {
 }
 
 
-def _collect_candidates(root: TreeNode) -> list[tuple[str, TreeNode, Optional[TreeNode], Optional[int]]]:
+def _collect_candidates(
+    root: TreeNode,
+) -> list[tuple[str, TreeNode, Optional[TreeNode], Optional[int]]]:
     candidates: list[tuple[str, TreeNode, Optional[TreeNode], Optional[int]]] = []
 
-    def _walk(node: TreeNode, parent: Optional[TreeNode], index_in_parent: Optional[int]) -> None:
+    def _walk(
+        node: TreeNode, parent: Optional[TreeNode], index_in_parent: Optional[int]
+    ) -> None:
         # Binary named combinators under cp_playable_term
         if node.op == "control__cp_playable_term" and len(node.children) >= 3:
             head = node.children[0]

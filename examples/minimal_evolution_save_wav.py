@@ -53,15 +53,17 @@ def main():
     # 1. Initialize backend for audio playback and recording
     # -------------------------------------------------------------------------
     print(f"Current working directory: {Path.cwd()}")
-    
+
     # Load BootTidal path from config
     from genetic_music.config import get_boot_tidal_path
-    
+
     try:
         BOOT_TIDAL = get_boot_tidal_path()
         if not BOOT_TIDAL:
             print("ERROR: BootTidal.hs path not configured!")
-            print("Please create a config.yaml file (see config.yaml.example) and set tidal.boot_file_path")
+            print(
+                "Please create a config.yaml file (see config.yaml.example) and set tidal.boot_file_path"
+            )
             return
     except FileNotFoundError as e:
         print(f"ERROR: {e}")
@@ -69,8 +71,8 @@ def main():
 
     backend = Backend(
         boot_tidal_path=BOOT_TIDAL,
-        orbit=8,    # SuperDirt orbit to render on
-        stream=12   # dedicated Tidal stream (d12)
+        orbit=8,  # SuperDirt orbit to render on
+        stream=12,  # dedicated Tidal stream (d12)
     )
 
     # -------------------------------------------------------------------------
@@ -82,7 +84,7 @@ def main():
     # -------------------------------------------------------------------------
     # 3. Initial population (PatternTree-based genomes)
     # -------------------------------------------------------------------------
-    pop_size = 3
+    pop_size = 2
     expressions = generate_expressions_mutational(pop_size)
     population = [Genome(pattern_tree=expression) for expression in expressions]
 
@@ -100,7 +102,7 @@ def main():
     # -------------------------------------------------------------------------
 
     evolved = population
-    for _ in range(3):
+    for _ in range(1):
         evolved = evolve_population(
             population=evolved,
             fitness_func=get_fitness,
@@ -110,7 +112,13 @@ def main():
 
         best = max(evolved, key=lambda g: g.fitness)
         print(f"Evolved population size: {len(evolved)}")
-        mutated_example = best.mutate(rate=1.0)
+        mutated_example = (
+            best.mutate(rate=1.0)
+            .mutate(rate=1.0)
+            .mutate(rate=1.0)
+            .mutate(rate=1.0)
+            .mutate(rate=1.0)
+        )
         print("\nMutated variant of best individual (sanity check):")
         print("-" * 50)
         print(f"Original Tidal: {to_tidal(best.pattern_tree)}")
@@ -129,16 +137,20 @@ def main():
 
     recorded_path = backend.play_tidal_code(
         rhs_pattern_expr=pattern,
-        duration=8.0,
+        duration=4.0,
         output_path=output_path,
         playback_after=False,
     )
 
     recorded_path = recorded_path.resolve()
     if recorded_path.exists():
-        print(f"[minimal_evolution_save_wav] Backend reported output at path: {recorded_path}")
+        print(
+            f"[minimal_evolution_save_wav] Backend reported output at path: {recorded_path}"
+        )
     else:
-        print(f"[minimal_evolution_save_wav] Backend reported no output at path: {recorded_path}")
+        print(
+            f"[minimal_evolution_save_wav] Backend reported no output at path: {recorded_path}"
+        )
 
     backend.close()
 

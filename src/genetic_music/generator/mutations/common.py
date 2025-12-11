@@ -79,8 +79,8 @@ def _single_octave_pattern(
 
 # For plain `n` / `note` modifiers we work directly in semitones within a
 # single octave (12 semitones). This keeps all values within one octave.
-NOTE_PATTERN_GENERATOR: PatternStringGenerator = (
-    lambda rng: _single_octave_pattern(rng, degree_min=0, degree_max=11)
+NOTE_PATTERN_GENERATOR: PatternStringGenerator = lambda rng: _single_octave_pattern(
+    rng, degree_min=0, degree_max=11
 )
 
 
@@ -96,6 +96,7 @@ SCALE_INT_PATTERN_GENERATOR: PatternStringGenerator = (
 # ---------------------------------------------------------------------------
 # Tree helpers
 # ---------------------------------------------------------------------------
+
 
 def clone_treenode(node: TreeNode) -> TreeNode:
     """Recursively clone a :class:`TreeNode` subtree.

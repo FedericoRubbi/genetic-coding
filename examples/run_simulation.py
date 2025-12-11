@@ -31,11 +31,11 @@ def main() -> None:
     # 1. Configuration
     # ---------------------------------------------------------------------
     # For testing: small pop, few generations
-    pop_size = 16        # Small population for testing
+    pop_size = 16  # Small population for testing
     num_generations = 100  # Few generations for quick testing
     mutation_rate = 0.95
-    elitism = 2          # Keep 2 best, create 6 new offspring per generation
-    
+    elitism = 2  # Keep 2 best, create 6 new offspring per generation
+
     # For full run, use:
     # pop_size = 32
     # num_generations = 100
@@ -67,7 +67,9 @@ def main() -> None:
             start_gen = loaded_gen + 1
             population = loaded_pop
             print(f"[Resume] Loaded population size: {len(population)}")
-            print(f"[Resume] Resuming from generation {start_gen + 1}/{num_generations}")
+            print(
+                f"[Resume] Resuming from generation {start_gen + 1}/{num_generations}"
+            )
         except Exception as e:
             print(f"[Resume] ERROR loading checkpoint: {e}")
             print("[Resume] Starting fresh...")
@@ -79,7 +81,9 @@ def main() -> None:
         population = [Genome(pattern_tree=expression) for expression in expressions]
 
     if start_gen >= num_generations:
-        print(f"[Run] Simulation already completed (last gen {start_gen} >= {num_generations}).")
+        print(
+            f"[Run] Simulation already completed (last gen {start_gen} >= {num_generations})."
+        )
         return
 
     # ---------------------------------------------------------------------
@@ -92,10 +96,10 @@ def main() -> None:
         "elitism": elitism,
         "fitness_func": "get_fitness",
         "note": "Example long-run evolution for plotting fitness over time.",
-        "resumed_from_gen": start_gen
+        "resumed_from_gen": start_gen,
     }
 
-    # RunLogger creates a new file with timestamp. 
+    # RunLogger creates a new file with timestamp.
     # If resuming, this will be a new "segment" of the log.
     with RunLogger(run_name=run_name, output_dir=log_dir, metadata=metadata) as logger:
         # -----------------------------------------------------------------
@@ -122,12 +126,10 @@ def main() -> None:
                 fitness_scores=fitness_scores,
                 best_expression=best_expression,
             )
-            
+
             # Save Checkpoint
             save_checkpoint(
-                filepath=checkpoint_path,
-                generation=gen,
-                population=population
+                filepath=checkpoint_path, generation=gen, population=population
             )
 
             gen_time = time.time() - gen_start

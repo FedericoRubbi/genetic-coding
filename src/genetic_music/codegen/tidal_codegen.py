@@ -40,5 +40,3 @@ def to_tidal(tree: PatternTree) -> str:
     """
     lark_tree = tree.to_lark_tree()
     return _RECONSTRUCTOR.reconstruct(lark_tree)
-
-

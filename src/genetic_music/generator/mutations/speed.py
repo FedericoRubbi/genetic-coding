@@ -21,14 +21,14 @@ def speed_change(tree: PatternTree, rng: random.Random) -> PatternTree:
     """
     base_branch = tree.root
 
-        # Choose fast or slow
+    # Choose fast or slow
     op_name = rng.choice(["fast", "slow"])
 
-        # Choose factor from sensible values
+    # Choose factor from sensible values
     factors = [0.5, 1.5, 2, 3]
     factor = rng.choice(factors)
 
-        # Build the prefix_cp node with the appropriate token and factor
+    # Build the prefix_cp node with the appropriate token and factor
     if op_name == "fast":
         op_token = TreeNode(op="FAST", value="fast")
     else:  # "slow"
@@ -53,8 +53,8 @@ def speed_change(tree: PatternTree, rng: random.Random) -> PatternTree:
 
     # Build the cp_playable_term root that applies the speed transformation
     new_root = TreeNode(
-    op="control__cp_playable_term",
-    children=[prefix_node, base_branch],
+        op="control__cp_playable_term",
+        children=[prefix_node, base_branch],
     )
 
     return PatternTree(root=new_root)
