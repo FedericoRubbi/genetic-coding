@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import time
+import signal
 from typing import Dict, Optional
 
 import librosa
@@ -22,6 +23,19 @@ from librosa.feature.rhythm import tempo as tempo_fn
 # Simple in‑memory cache for target audio waveforms.
 # Keyed by (absolute_path, sampling_rate).
 _TARGET_AUDIO_CACHE: Dict[tuple[str, int], tuple[np.ndarray, int]] = {}
+
+
+class FitnessTimeoutError(TimeoutError):
+    """Raised when a fitness evaluation exceeds the allowed time."""
+
+    pass
+
+
+def _timeout_handler(signum, frame):
+    """Signal handler used to interrupt long-running fitness evaluations."""
+    raise FitnessTimeoutError(
+        f"Fitness evaluation exceeded time limit (signal={signum})"
+    )
 
 # ---------------------------------------------------------------------------
 # Audio format utilities
@@ -444,27 +458,17 @@ def evaluate_genome_fitness(
 # ---------------------------------------------------------------------------
 
 
-def get_fitness(genome: Genome) -> float:
-    """Convenience function for fitness evaluation with default settings.
+def _get_fitness_impl(genome: Genome) -> float:
+    """Internal implementation of fitness evaluation without timeout guards.
 
-    This function uses hardcoded paths and a global backend instance,
-    suitable for quick experiments. For production use, prefer
-    :func:`evaluate_genome_fitness` with explicit configuration.
-
-    Parameters
-    ----------
-    genome:
-        The genome to evaluate.
-
-    Returns
-    -------
-    float
-        Fitness score in [0, 1].
+    This contains the original logic of :func:`get_fitness`. It is wrapped by
+    :func:`get_fitness` below, which adds a per-call timeout so that a single
+    bad backend interaction cannot stall a long evolutionary run.
     """
 
     # Load configuration
     from genetic_music.config import get_boot_tidal_path
-    
+
     try:
         BOOT_TIDAL = get_boot_tidal_path()
         if not BOOT_TIDAL:
@@ -474,7 +478,7 @@ def get_fitness(genome: Genome) -> float:
             )
     except FileNotFoundError as e:
         raise FileNotFoundError(str(e))
-    
+
     backend = Backend(
         boot_tidal_path=BOOT_TIDAL,
         orbit=8,  # SuperDirt orbit to render on
@@ -503,3 +507,46 @@ def get_fitness(genome: Genome) -> float:
             backend.close()
         except Exception:
             pass
+
+
+def get_fitness(genome: Genome, timeout: float = 120.0) -> float:
+    """Convenience function for fitness evaluation with default settings.
+
+    This wraps the core implementation in a Unix SIGALRM-based timeout so that
+    hangs in GHCi/SuperCollider/FFmpeg/etc. cannot stall the entire evolution.
+    On platforms without ``SIGALRM`` (e.g. Windows), it falls back to the
+    unguarded implementation.
+
+    Parameters
+    ----------
+    genome:
+        The genome to evaluate.
+    timeout:
+        Maximum wall-clock time in seconds allowed for a single evaluation.
+
+    Returns
+    -------
+    float
+        Fitness score in [0, 1].
+    """
+
+    # If SIGALRM is not available (e.g. on Windows), run without timeout guard.
+    if not hasattr(signal, "SIGALRM"):
+        return _get_fitness_impl(genome)
+
+    # Install a temporary alarm handler.
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    # Cancel any prior alarms and schedule a new one.
+    signal.alarm(0)
+    signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.alarm(int(timeout))
+
+    try:
+        return _get_fitness_impl(genome)
+    except FitnessTimeoutError as e:
+        print(f"[Fitness] TIMEOUT: {e}. Returning fitness=0.0")
+        return 0.0
+    finally:
+        # Always cancel the alarm and restore the previous handler.
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)

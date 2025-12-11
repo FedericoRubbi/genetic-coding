@@ -45,9 +45,21 @@ class TidalGhci:
 
         # Load BootTidal.hs (standard way editors do)
         self._write(f':script {self._quote(self.boot_tidal_path)}')
-        # Optional: set a distinct prompt so we can detect readiness
+        # Optional: set a distinct prompt so we can detect readiness.
+        # IMPORTANT: we deliberately avoid blocking forever waiting for the
+        # prompt token here. In some environments BootTidal or user config can
+        # interfere with the prompt logic, and a blocking read can deadlock
+        # the whole backend. Instead, we:
+        #   - request a prompt
+        #   - drain whatever output is available for a bounded time window
+        # This is enough to ensure GHCi is responsive without risking hangs.
         self._write(':set prompt "tidal> "')
-        self._wait_for("tidal>")
+
+        debug_startup = os.environ.get("GHCI_DEBUG_BUFFER", "false").lower() == "true"
+        # Best-effort, non-blocking drain of startup output (up to ~5s).
+        # If nothing arrives or the prompt doesn't appear, we still proceed,
+        # and later eval() calls will surface problems via exceptions.
+        self._read_available(timeout=5.0, debug=debug_startup)
 
     def _quote(self, p: Path) -> str:
         return shlex.quote(str(p))
