@@ -112,7 +112,7 @@
 % *** GRAPHICS RELATED PACKAGES ***
 %
 \ifCLASSINFOpdf
-  % \usepackage[pdftex]{graphicx}
+  \usepackage[pdftex]{graphicx}
   % declare the path(s) where your graphic files are
   % \graphicspath{{../pdf/}{../jpeg/}}
   % and their extensions so you won't have to specify these with
@@ -129,6 +129,8 @@
   % every instance of \includegraphics
   % \DeclareGraphicsExtensions{.eps}
 \fi
+\usepackage{tikz}
+\usepackage[edges]{forest}
 % graphicx was written by David Carlisle and Sebastian Rahtz. It is
 % required if you want graphics, photos, etc. graphicx.sty is already
 % installed on most LaTeX systems. The latest version and documentation
@@ -369,9 +371,10 @@
 % was not built to handle multiple paragraphs
 %
 
-\author{Michael~Shell,~\IEEEmembership{Member,~IEEE,}
-        John~Doe,~\IEEEmembership{Fellow,~OSA,}
-        and~Jane~Doe,~\IEEEmembership{Life~Fellow,~IEEE}% <-this % stops a space
+\author{Federico~Rubbi,
+        Jie~Chen,
+        Stefano~Camposilvan,
+        and~Valeria~Miroslava~Mayora~Barcenas% <-this % stops a space
 \thanks{M. Shell was with the Department
 of Electrical and Computer Engineering, Georgia Institute of Technology, Atlanta,
 GA, 30332 USA e-mail: (see http://www.michaelshell.org/contact.html).}% <-this % stops a space
@@ -399,8 +402,8 @@ GA, 30332 USA e-mail: (see http://www.michaelshell.org/contact.html).}% <-this %
 
 
 % The paper headers
-\markboth{Journal of \LaTeX\ Class Files,~Vol.~14, No.~8, August~2015}%
-{Shell \MakeLowercase{\textit{et al.}}: Bare Demo of IEEEtran.cls for IEEE Journals}
+\markboth{BIO-INSPIRED ARTIFICIAL INTELLIGENCE COURSE PROJECT REPORT, 2025-2026}%
+{Target-driven Genetic Programming of Music Patterns with TidalCycles}
 % The only time the second header will appear is for the odd numbered pages
 % after the title page when using the twoside option.
 % 
@@ -590,17 +593,28 @@ aggregates them into a scalar fitness used by the genetic programming loop.
 
 \subsubsection{Grammar and Pattern Trees}
 To ensure that all evolved individuals are syntactically valid TidalCycles
-patterns, we base our representation on a family of \texttt{lark} grammars
-that describe typed pattern expressions (e.g., notes, numbers, booleans,
-time values).
+patterns, we base our representation on a family of grammar modules written
+in Lark's EBNF-inspired format and compiled to an LALR(1) parser~\cite{Shinan2020_Lark}.
+These grammars define typed pattern expressions (e.g., notes, numbers,
+booleans, time values) by combining terminal symbols (tokens) with
+non-terminal production rules.
 Non-terminals such as \texttt{pattern\_note}, \texttt{pattern\_int} and
 \texttt{pattern\_time} encode the structure of different pattern types,
-while terminal symbols represent note names, sample identifiers and numeric
-literals.
-
-Concretely, the import-closed grammar used in our experiments spans 13 Lark
+while terminals represent note names, sample identifiers, numeric literals
+and operator tokens.
+For example, the top-level control-pattern rule in one of our grammar
+modules is written as:
+{\fontsize{8.59}{10.87}\selectfont
+\begin{verbatim}
+?control_pattern: cp_playable_term 
+                  (cp_infix_op cp_playable_term)*
+\end{verbatim}
+}
+which states (in Lark's EBNF-like syntax) that a \texttt{control\_pattern}
+consists of one or more \texttt{cp\_playable\_term} expressions combined by
+an infix operator layer \texttt{cp\_infix\_op}. More specifically, the import-closed grammar used in our experiments spans 13 Lark
 modules and 239 production rules.
-A static analysis of the symbol dependency graph reveals 45 distinct terminal
+As shown by static analysis tools, the symbol dependency graph consists 45 distinct terminal
 symbols and 193 non-terminals.
 The terminals cover typed scalar tokens (integers, floating-point numbers,
 booleans, strings and the special \emph{silence} symbol), explicit operator
@@ -630,13 +644,18 @@ operations such as computing depth and size, iterating over nodes, and
 reconstructing the corresponding Tidal expression.
 Because trees are generated and transformed in accordance with the grammar,
 genetic operators cannot produce malformed code.
+Figure~\ref{fig:pattern-tree} shows a small example tree for the pattern
+\texttt{fast 2 (stack[s("bd"), s("sn")])}, highlighting how timing transforms,
+list combinators and sound atoms are combined hierarchically.
 
 \begin{figure}[!t]
   \centering
-  % \includegraphics[width=\linewidth]{figures/pattern_tree.pdf}
-  \caption{Example pattern tree corresponding to a short TidalCycles pattern,
-  illustrating the hierarchical combination of timing, layering and sound
-  selection operators.}
+  \includegraphics[width=\columnwidth]{../data/figures/pattern_tree.pdf}
+  \caption{Example pattern tree for the TidalCycles expression
+  \texttt{fast 2 (stack[s("bd"), s("sn")])}, illustrating the hierarchical
+  combination of a timing transform (\texttt{fast}), a list combinator
+  (\texttt{stack}) and two sound-producing atoms (\texttt{sound} ``bd'',
+  \texttt{sound} ``sn'').}
   \label{fig:pattern-tree}
 \end{figure}
 
@@ -815,20 +834,107 @@ TidalCycles patterns.
 \section{Experimental Setup and Results}
 
 \subsection{Experimental Setup}
-% TODO: Describe target audio clips, evolution parameters, implementation
-% details and runtime considerations.
+The experimental setup was designed to evaluate how effectively the genetic
+programming system can evolve TidalCycles patterns toward simple target
+audio clips under realistic runtime constraints.
+
+\subsubsection{Target Audio Selection}
+We selected five short target audio clips with gradually increasing rhythmic
+and textural complexity (e.g., single-drum loops, simple kick--snare
+patterns and slightly denser grooves).
+All clips were rendered at a common tempo and duration compatible with our
+recording window, so that fitness values are comparable across runs.
+
+\subsubsection{Evolutionary Parameters}
+Unless otherwise noted, experiments use the same core evolutionary
+configuration:
+\begin{itemize}
+    \item population size: 16 individuals;
+    \item maximum generations: 100;
+    \item mutation rate: 0.95;
+    \item elitism: top 2 individuals copied unchanged to the next generation.
+\end{itemize}
+
+\subsubsection{Fitness Weights and Runtime}
+The composite fitness function combines the feature similarities described in
+Section~\ref{sec:method} using a fixed set of weights:
+\begin{itemize}
+    \item MFCC and chroma similarity: 0.25 each;
+    \item rhythmic/onset features: 0.15;
+    \item FFT spectral shape and RMS dynamics: 0.10 each;
+    \item tempo similarity: 0.10;
+    \item coarse melody/pitch contour: 0.05.
+\end{itemize}
+On the reference hardware used for our experiments, a single fitness
+evaluation---including pattern rendering through TidalCycles/SuperDirt and
+feature extraction with \texttt{librosa}---takes on the order of a few
+seconds, so a full 100-generation run with population 16 completes in a few
+hours.
 
 \subsection{Results}
-% TODO: Present convergence plots, quantitative metrics and qualitative
-% analysis of evolved patterns versus the target.
+To analyse how the genetic programming loop behaves over time, we ran a
+representative long-run experiment and logged the fitness of each generation.
+The configuration for this run uses a population of
+16 individuals, 100 generations, a high mutation rate of 0.95, and elitist
+preservation of the top 2 individuals per generation under the
+\texttt{get\_fitness} objective.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\columnwidth]{../data/figures/fitness_log.png}
+  \caption{Evolution of fitness over 100 generations for a population of
+  16 individuals (mutation rate 0.95, elitism 2). The shaded area shows
+  the range between minimum and maximum fitness in each generation; the
+  curves trace the minimum, mean and maximum fitness values.}
+  \label{fig:fitness-evolution}
+\end{figure}
+
+Figure~\ref{fig:fitness-evolution} summarizes the behaviour of this run.
+Despite the aggressive mutation rate, the maximum fitness curve shows a
+monotonic improvement from an initially mediocre pattern toward a solution
+with fitness close to 0.7, while the mean fitness oscillates in a narrower
+band around 0.55.
+The large spread between minimum and maximum fitness indicates that the
+population maintains diversity throughout the run, which helps avoid
+premature convergence while still allowing the elites to steadily push the
+frontier of best solutions.
 
 \section{Discussion}
 % TODO: Discuss strengths and limitations of the approach, interpret the
 % results and relate them back to the problem statement and related work.
 
 \section{Future Work}
-% TODO: Outline possible extensions, including algorithmic improvements,
-% richer grammars and interactive or real-time scenarios.
+Several directions could extend and improve this work.
+
+\subsection*{Algorithmic Improvements}
+\begin{itemize}
+    \item \emph{Adaptive fitness weights}: dynamically adjust the contribution
+          of each feature component based on the target clip or on observed
+          convergence patterns.
+    \item \emph{Multi-objective optimisation}: treat the different similarity
+          measures (e.g., timbre vs.\ rhythm) as separate objectives and use
+          Pareto-based selection rather than a single weighted sum.
+\end{itemize}
+
+\subsection*{Representation Extensions}
+\begin{itemize}
+    \item \emph{Expanded grammar}: extend the grammar to cover a larger
+          portion of TidalCycles, including more SuperDirt samples,
+          continuous control patterns and a richer set of effects.
+\end{itemize}
+
+\subsection*{Interactive and Real-time Scenarios}
+\begin{itemize}
+    \item \emph{Live performance adaptation}: develop a real-time variant that
+          runs alongside a live coder, continuously proposing evolved
+          variations of the current pattern.
+    \item \emph{Collaborative evolution interfaces}: build a simple GUI or web
+          interface where multiple users can listen to candidates, adjust
+          fitness weights and vote on preferred directions.
+    \item \emph{Pattern exploration tools}: create a ``pattern browser'' that
+          allows users to navigate the space of evolved solutions, audition
+          related patterns and restart evolution from interesting individuals.
+\end{itemize}
 
 \section{Conclusion}
 % TODO: Summarize the overall approach, main findings and key takeaways of
@@ -855,7 +961,7 @@ TidalCycles patterns.
 
 % references section
 
-\begin{thebibliography}{16}
+\begin{thebibliography}{17}
 
 \bibitem{Horner1991_GA_Music}
 A.~Horner and D.~E. Goldberg, ``Genetic algorithms and computer-assisted music
@@ -934,6 +1040,10 @@ S.~Dasari and J.~Freeman, ``Directed evolution in live coding music
 B.~McFee, C.~Raffel, D.~Liang, D.~P.~W. Ellis, M.~McVicar, E.~Battenberg, and
   O.~Nieto, ``librosa: Audio and music signal analysis in python,'' in
   \emph{Proc. 14th Python in Science Conf.}, 2015, pp.~18--25.
+
+\bibitem{Shinan2020_Lark}
+E.~Shinan, ``Lark: Modern parsing for {P}ython,'' GitHub repository,
+  \texttt{https://github.com/lark-parser/lark}, accessed~2025.
 
 \end{thebibliography}
 \end{document}
