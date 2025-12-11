@@ -559,6 +559,7 @@ By iteratively sampling, evaluating and selecting genomes, the system
 evolves pattern code whose audio output progressively approaches the target.
 
 \section{Method}
+\label{sec:method}
 
 \subsection{System Overview}
 At a high level, the system implements a standard evolutionary loop
@@ -900,8 +901,27 @@ premature convergence while still allowing the elites to steadily push the
 frontier of best solutions.
 
 \section{Discussion}
-% TODO: Discuss strengths and limitations of the approach, interpret the
-% results and relate them back to the problem statement and related work.
+The experiments indicate that a grammar-based genetic programming approach
+can reliably steer TidalCycles patterns toward a fixed audio target while
+preserving syntactic correctness and musical structure.
+The fitness evolution in Figure~\ref{fig:fitness-evolution} shows that, even
+with an aggressive mutation rate, elitism and the rich operator set allow
+the population to steadily improve, reaching solutions with perceptually
+high similarity to the target according to our multi-feature objective.
+The diversity visible in the fitness range suggests that the search does not
+collapse prematurely, which is important in a space as large and structured
+as the Tidal grammar.
+
+At the same time, the results highlight several limitations.
+The approach is computationally expensive, since each evaluation requires
+rendering audio and extracting features; this constrains population size and
+the number of runs we can explore.
+Moreover, the handcrafted fitness weights inevitably bias the search toward
+certain musical aspects (e.g.\ timbre and harmony) and might not capture
+perceptual similarity perfectly for all targets.
+Finally, while the grammar ensures syntactic validity, it does not enforce
+high-level musical form, so some evolved patterns, although close in
+features, may still sound less musically satisfying than the reference.
 
 \section{Future Work}
 Several directions could extend and improve this work.
@@ -937,8 +957,19 @@ Several directions could extend and improve this work.
 \end{itemize}
 
 \section{Conclusion}
-% TODO: Summarize the overall approach, main findings and key takeaways of
-% the project in a concise way.
+We presented a target-driven genetic programming framework that evolves
+TidalCycles patterns so that their rendered audio approximates a given
+reference clip.
+By combining a typed grammar over the Tidal pattern language, a set of
+musically meaningful genetic operators and a multi-feature audio similarity
+fitness built on \texttt{librosa}, the system can discover valid pattern
+code that converges toward the target according to both quantitative
+metrics and qualitative listening.
+Although the current implementation is limited by computational cost and
+hand-tuned fitness weights, the results support the feasibility of using
+grammar-guided evolution to bridge symbolic live-coding patterns and
+audio-domain similarity objectives, opening the door to more interactive and
+expressive evolutionary tools for live coding and computer music.
 
 
 
