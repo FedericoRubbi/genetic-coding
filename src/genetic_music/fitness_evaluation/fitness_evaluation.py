@@ -7,6 +7,7 @@ audio feature similarity to a target audio file.
 from __future__ import annotations
 
 import os
+import time
 from typing import Dict, Optional
 
 import librosa
@@ -17,6 +18,10 @@ from genetic_music.backend.backend import Backend
 from genetic_music.codegen.tidal_codegen import to_tidal
 from genetic_music.genome.genome import Genome
 from librosa.feature.rhythm import tempo as tempo_fn
+
+# Simple in‑memory cache for target audio waveforms.
+# Keyed by (absolute_path, sampling_rate).
+_TARGET_AUDIO_CACHE: Dict[tuple[str, int], tuple[np.ndarray, int]] = {}
 
 # ---------------------------------------------------------------------------
 # Audio format utilities
@@ -168,8 +173,19 @@ def feature_similarity(
     """
 
     audio1, audio2 = ensure_wav(audio1), ensure_wav(audio2)
+
+    # Always load the *candidate* audio fresh – this changes every evaluation.
     y1, sr1 = librosa.load(audio1, sr=sr)
-    y2, sr2 = librosa.load(audio2, sr=sr)
+
+    # Cache the *target* audio (second argument) so we don't reload it from disk
+    # for every genome evaluation. This assumes the second argument is the
+    # long‑lived target, which is how this module is used by the evolution loop.
+    cache_key = (os.path.abspath(audio2), sr)
+    if cache_key in _TARGET_AUDIO_CACHE:
+        y2, sr2 = _TARGET_AUDIO_CACHE[cache_key]
+    else:
+        y2, sr2 = librosa.load(audio2, sr=sr)
+        _TARGET_AUDIO_CACHE[cache_key] = (y2, sr2)
 
     min_len = min(len(y1), len(y2))
     y1, y2 = y1[:min_len], y2[:min_len]
@@ -329,7 +345,7 @@ def evaluate_genome_fitness(
     backend: Backend,
     target_audio_path: str | os.PathLike,
     candidate_output_dir: str | os.PathLike,
-    duration: float = 8.0,
+    duration: float = 4.0,
     weights: Optional[Dict[str, float]] = None,
 ) -> float:
     """Evaluate the fitness of a genome by rendering its audio and comparing to a target.
@@ -356,28 +372,70 @@ def evaluate_genome_fitness(
         Fitness score in [0, 1].
     """
 
+    start_time = time.time()
+
     # Convert pattern tree to Tidal code
     tidal_code = to_tidal(genome.pattern_tree)
 
     # Ensure output directory exists
     os.makedirs(candidate_output_dir, exist_ok=True)
 
-    # Render candidate audio
+    # Use unique filename to avoid file contention/locking issues
+    # Include timestamp and random component for uniqueness
+    import random
+    unique_id = f"{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
     candidate_output_path = os.path.join(
-        candidate_output_dir, "candidate.wav"
+        candidate_output_dir, f"candidate_{unique_id}.wav"
     )
-    recorded_path = backend.play_tidal_code(
-        rhs_pattern_expr=tidal_code,
-        duration=duration,
-        output_path=candidate_output_path,
-        playback_after=False,
-    )
+
+    render_start = time.time()
+    try:
+        recorded_path = backend.play_tidal_code(
+            rhs_pattern_expr=tidal_code,
+            duration=duration,
+            output_path=candidate_output_path,
+            playback_after=False,
+        )
+    except Exception as e:
+        print(f"[Fitness] ERROR during audio rendering: {e}")
+        # Return very low fitness on render failure
+        return 0.0
+    render_end = time.time()
+
+    # Verify the file was created successfully
+    if not os.path.exists(recorded_path) or os.path.getsize(recorded_path) < 1000:
+        print(f"[Fitness] ERROR: Recording failed or file too small: {recorded_path}")
+        return 0.0
 
     # Ensure target is in wav format
     target_wav = ensure_wav(target_audio_path)
 
     # Compute fitness
-    fitness, _ = compute_fitness(recorded_path, target_wav, weights=weights)
+    features_start = time.time()
+    try:
+        fitness, _ = compute_fitness(recorded_path, target_wav, weights=weights)
+    except Exception as e:
+        print(f"[Fitness] ERROR during feature computation: {e}")
+        fitness = 0.0
+    features_end = time.time()
+
+    # Clean up the temporary candidate file to avoid disk buildup
+    try:
+        os.remove(recorded_path)
+    except Exception:
+        pass  # Non-critical if cleanup fails
+
+    total_time = features_end - start_time
+    render_time = render_end - render_start
+    feature_time = features_end - features_start
+
+    print(
+        "[Fitness] Evaluation timings | "
+        f"render={render_time:.2f}s, "
+        f"features={feature_time:.2f}s, "
+        f"total={total_time:.2f}s"
+    )
+
     return fitness
 
 
@@ -421,18 +479,27 @@ def get_fitness(genome: Genome) -> float:
         boot_tidal_path=BOOT_TIDAL,
         orbit=8,  # SuperDirt orbit to render on
         stream=12,  # dedicated Tidal stream (d12)
+        debug_buffer=True,  # Enable buffer debugging to diagnose hangs
     )
 
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    target = os.path.join(base_dir, "../../../data/target/target.mp3")
-    candidate_dir = os.path.join(
-        base_dir, "../../../data/candidate/candidate_audio"
-    )
+    try:
+        base_dir = os.path.dirname(os.path.realpath(__file__))
+        target = os.path.join(base_dir, "../../../data/target/target.mp3")
+        candidate_dir = os.path.join(
+            base_dir, "../../../data/candidate/candidate_audio"
+        )
 
-    return evaluate_genome_fitness(
-        genome=genome,
-        backend=backend,
-        target_audio_path=target,
-        candidate_output_dir=candidate_dir,
-        duration=4.0,
-    )
+        return evaluate_genome_fitness(
+            genome=genome,
+            backend=backend,
+            target_audio_path=target,
+            candidate_output_dir=candidate_dir,
+            duration=4.0,
+        )
+    finally:
+        # VERY IMPORTANT: ensure we don't leak GHCi/SC processes.
+        # Each get_fitness() call should clean up its Backend.
+        try:
+            backend.close()
+        except Exception:
+            pass

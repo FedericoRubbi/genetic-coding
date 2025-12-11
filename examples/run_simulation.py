@@ -9,7 +9,9 @@ The resulting CSV and metadata JSON can be used later to create plots for
 analysis or for inclusion in reports.
 """
 
+import sys
 from pathlib import Path
+import time
 
 # --- Internal imports, updated for new package layout ---
 from genetic_music.genome.genome import Genome
@@ -18,21 +20,31 @@ from genetic_music.generator import generate_expressions_mutational
 from genetic_music.codegen.tidal_codegen import to_tidal
 from genetic_music.fitness_evaluation.fitness_evaluation import get_fitness
 from genetic_music.run_logger import RunLogger
+from genetic_music.checkpoint import save_checkpoint, load_checkpoint
 
 
 def main() -> None:
+    # Ensure stdout is flushed immediately so supervisor sees progress
+    sys.stdout.reconfigure(line_buffering=True)
+
     # ---------------------------------------------------------------------
     # 1. Configuration
     # ---------------------------------------------------------------------
-    pop_size = 32
-    num_generations = 100
-    mutation_rate = 1
-    elitism = 2
+    # For testing: small pop, few generations
+    pop_size = 16        # Small population for testing
+    num_generations = 100  # Few generations for quick testing
+    mutation_rate = 0.95
+    elitism = 2          # Keep 2 best, create 6 new offspring per generation
+    
+    # For full run, use:
+    # pop_size = 32
+    # num_generations = 100
 
     run_name = "run_simulation"
 
     # Where to store logs (CSV + metadata). ``RunLogger`` will create this.
     log_dir = Path("data/logs")
+    checkpoint_path = Path("data/checkpoints/latest.pkl")
 
     print("Running minimal evolution with logging...")
     print(f"Population size: {pop_size}")
@@ -40,12 +52,35 @@ def main() -> None:
     print(f"Mutation rate: {mutation_rate}")
     print(f"Elitism: {elitism}")
     print(f"Log directory: {log_dir.resolve()}")
+    print(f"Checkpoint path: {checkpoint_path.resolve()}")
 
     # ---------------------------------------------------------------------
-    # 2. Initial population (PatternTree-based genomes)
+    # 2. Initial population (Load from Checkpoint if available)
     # ---------------------------------------------------------------------
-    expressions = generate_expressions_mutational(pop_size)
-    population = [Genome(pattern_tree=expression) for expression in expressions]
+    start_gen = 0
+    population = None
+
+    if checkpoint_path.exists():
+        try:
+            print(f"[Resume] Found checkpoint at {checkpoint_path}")
+            loaded_gen, loaded_pop, _ = load_checkpoint(checkpoint_path)
+            start_gen = loaded_gen + 1
+            population = loaded_pop
+            print(f"[Resume] Loaded population size: {len(population)}")
+            print(f"[Resume] Resuming from generation {start_gen + 1}/{num_generations}")
+        except Exception as e:
+            print(f"[Resume] ERROR loading checkpoint: {e}")
+            print("[Resume] Starting fresh...")
+            population = None
+
+    if population is None:
+        print("[Init] Generating fresh population...")
+        expressions = generate_expressions_mutational(pop_size)
+        population = [Genome(pattern_tree=expression) for expression in expressions]
+
+    if start_gen >= num_generations:
+        print(f"[Run] Simulation already completed (last gen {start_gen} >= {num_generations}).")
+        return
 
     # ---------------------------------------------------------------------
     # 3. Set up logger
@@ -57,13 +92,19 @@ def main() -> None:
         "elitism": elitism,
         "fitness_func": "get_fitness",
         "note": "Example long-run evolution for plotting fitness over time.",
+        "resumed_from_gen": start_gen
     }
 
+    # RunLogger creates a new file with timestamp. 
+    # If resuming, this will be a new "segment" of the log.
     with RunLogger(run_name=run_name, output_dir=log_dir, metadata=metadata) as logger:
         # -----------------------------------------------------------------
         # 4. Evolution loop with per-generation logging
         # -----------------------------------------------------------------
-        for gen in range(num_generations):
+        for gen in range(start_gen, num_generations):
+            gen_start = time.time()
+            print(f"\n[Run] Starting generation {gen + 1}/{num_generations}")
+
             population = evolve_population(
                 population=population,
                 fitness_func=get_fitness,
@@ -81,16 +122,20 @@ def main() -> None:
                 fitness_scores=fitness_scores,
                 best_expression=best_expression,
             )
+            
+            # Save Checkpoint
+            save_checkpoint(
+                filepath=checkpoint_path,
+                generation=gen,
+                population=population
+            )
 
-            # Lightweight progress output.
-            if gen % 10 == 0 or gen == num_generations - 1:
-                print(
-                    f"Generation {gen:4d} | "
-                    f"best_fitness={best.fitness:.4f} | "
-                    f"min={min(fitness_scores):.4f}, "
-                    f"max={max(fitness_scores):.4f}, "
-                    f"mean={sum(fitness_scores) / len(fitness_scores):.4f}"
-                )
+            gen_time = time.time() - gen_start
+            print(
+                f"[Run] Finished generation {gen + 1}/{num_generations} "
+                f"in {gen_time:.2f}s "
+                f"(best_fitness={best.fitness:.4f})"
+            )
 
         print("\nEvolution completed.")
         print(f"CSV log written to: {logger.config.csv_path.resolve()}")

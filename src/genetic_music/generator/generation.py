@@ -74,7 +74,6 @@ def mutate_pattern_tree(
         If an unknown mutation operator name is provided in
         ``mutation_kinds``.
     """
-
     if rng is None:
         rng = random
 
