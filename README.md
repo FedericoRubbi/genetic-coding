@@ -1,6 +1,6 @@
 # Target-driven Genetic Programming of Music Patterns with TidalCycles
 
-*Project for Bio-Inspired AI course, Univeristy of Trento* <br>
+*Project for Bio-Inspired AI course, University of Trento* <br>
 *Authors: Federico Rubbi, Jie Chen, Stefano Camposilvan, Valeria Miroslava Mayora Barcenas*
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
@@ -14,7 +14,7 @@ To make this feasible, we represent individuals as typed expression trees genera
 
 In summary, the project covers: (i) a grammar-based genome representation for genetic programming over TidalCycles patterns; (ii) a multi-feature audio similarity fitness tailored to this domain; and (iii) an empirical study of how these design choices influence the evolution of patterns toward a fixed audio target.
 
-This is a university project for the BIO-INSPIRED AI course.
+The full technical report is available in report/report.tex (LaTeX source).
 
 ## Features
 
@@ -28,9 +28,9 @@ This is a university project for the BIO-INSPIRED AI course.
 
 ### Prerequisites
 - Python 3.9 or higher
-- TidalCycles installed and configured
-- SuperDirt running (typically via SuperCollider)
-- Optional: Machine learning dependencies for advanced fitness evaluation
+- TidalCycles installed and configured (https://tidalcycles.org/docs/)
+- SuperDirt running (typically via SuperCollider) (https://supercollider.github.io/)
+- Use `startup.scd` as SuperDirt starup file
 
 ### Setup
 1. Clone the repository:
@@ -128,25 +128,31 @@ See `docs/architecture.md` for detailed diagrams and component descriptions.
 Settings are managed via `config.yaml` in the project root:
 
 ```yaml
-evolution:
-  population_size: 50
-  generations: 100
-  crossover_rate: 0.8
-  mutation_rate: 0.1
-  elite_size: 2
-
+# TidalCycles configuration
 tidal:
-  boot_file_path: "~/path/to/BootTidal.hs"
-  port: 6010
-  orbit: 8
+  # Path to your BootTidal.hs file
+  # You can use ~ for home directory, it will be expanded automatically
+  boot_file_path: "~/.cabal/share/aarch64-osx-ghc-9.12.2-ea3d/tidal-1.10.1/BootTidal.hs"
 
-fitness:
-  method: combined
-  weights:
-    timbre: 0.4
-    harmony: 0.3
-    rhythm: 0.2
-    dynamics: 0.1
+# Backend configuration
+backend:
+  # GHCi command to use (default: "ghci")
+  ghci_cmd: "ghci"
+  
+  # SuperDirt orbit for rendering
+  orbit: 8
+  
+  # Dedicated Tidal stream number
+  stream: 12
+
+# Output paths
+output:
+  # Base directory for generated audio files
+  audio_dir: "data/outputs"
+  
+  # Base directory for evolution results
+  evolution_dir: "data/outputs/minimal_evolution"
+
 ```
 
 Environment variables can override config values (e.g., `TIDAL_BOOT_FILE_PATH`).
@@ -182,48 +188,6 @@ Run examples after activating the virtual environment and ensuring TidalCycles i
 - SuperCollider: Audio server
 
 Install optional dependencies: `pip install -e .[ml,viz,dev]`
-
-## Development
-
-### Testing
-```bash
-pytest
-```
-
-### Code Quality
-```bash
-black src/ examples/
-flake8 src/ examples/
-```
-
-### Grammar Visualization
-Explore the Tidal grammars visually:
-```bash
-python -m utils.grammar_viz --root src/genetic_music/grammar --out grammar_graph.html
-```
-
-## Academic Context
-
-This project was developed as part of the BIO-INSPIRED AI course at [University Name]. The full technical report is available in `report/report.tex` (LaTeX source).
-
-The approach builds on evolutionary music systems (e.g., Horner 1991, Papadopoulos 1999) and live coding integration (e.g., Hickinbotham 2016), extending them with target-driven audio similarity objectives.
-
-## Contributing
-
-1. Follow PEP 8 style guidelines
-2. Add tests for new functionality
-3. Update documentation for API changes
-4. Ensure compatibility with Python 3.9+
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Authors
-
-- [Your Name] - Project Developer
-- Course: BIO-INSPIRED AI
-- Supervisor: [Supervisor Name, if applicable]
 
 ## References
 
