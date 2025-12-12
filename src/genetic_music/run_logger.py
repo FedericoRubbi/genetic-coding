@@ -112,12 +112,14 @@ class RunLogger:
         min_f = float(scores_array.min())
         max_f = float(scores_array.max())
         mean_f = float(scores_array.mean())
+        std_f = float(scores_array.std(ddof=0))
 
         row = {
             "generation": int(generation),
             "min_fitness": min_f,
             "max_fitness": max_f,
             "mean_fitness": mean_f,
+            "std_fitness": std_f,
             "best_fitness": max_f,  # explicit, even if redundant
             "population_size": int(scores_array.size),
             "best_expression": best_expression,
@@ -178,6 +180,7 @@ class RunLogger:
             "min_fitness",
             "max_fitness",
             "mean_fitness",
+            "std_fitness",
             "best_fitness",
             "population_size",
             "best_expression",

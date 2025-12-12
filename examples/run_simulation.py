@@ -31,14 +31,11 @@ def main() -> None:
     # 1. Configuration
     # ---------------------------------------------------------------------
     # For testing: small pop, few generations
-    pop_size = 16  # Small population for testing
-    num_generations = 100  # Few generations for quick testing
+    pop_size = 32  # Small population for testing
+    num_generations = 200  # Few generations for quick testing
     mutation_rate = 0.95
+    crossover_rate = 0.5  # Probability of using crossover for offspring
     elitism = 2  # Keep 2 best, create 6 new offspring per generation
-
-    # For full run, use:
-    # pop_size = 32
-    # num_generations = 100
 
     run_name = "run_simulation"
 
@@ -50,6 +47,7 @@ def main() -> None:
     print(f"Population size: {pop_size}")
     print(f"Generations: {num_generations}")
     print(f"Mutation rate: {mutation_rate}")
+    print(f"Crossover rate: {crossover_rate}")
     print(f"Elitism: {elitism}")
     print(f"Log directory: {log_dir.resolve()}")
     print(f"Checkpoint path: {checkpoint_path.resolve()}")
@@ -93,6 +91,7 @@ def main() -> None:
         "population_size": pop_size,
         "num_generations": num_generations,
         "mutation_rate": mutation_rate,
+        "crossover_rate": crossover_rate,
         "elitism": elitism,
         "fitness_func": "get_fitness",
         "note": "Example long-run evolution for plotting fitness over time.",
@@ -114,6 +113,7 @@ def main() -> None:
                 fitness_func=get_fitness,
                 mutation_rate=mutation_rate,
                 elitism=elitism,
+                crossover_rate=crossover_rate,
             )
 
             # Collect fitness scores and best individual.

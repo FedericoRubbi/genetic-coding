@@ -11,6 +11,7 @@ def evolve_population(
     fitness_func: Callable[[Genome], float],
     mutation_rate: float = 0.1,
     elitism: int = 1,
+    crossover_rate: float = 0.0,
 ) -> List[Genome]:
     """
     Evolve a population of genomes using mutation and selection.
@@ -20,6 +21,9 @@ def evolve_population(
         fitness_func: Function to evaluate genome fitness
         mutation_rate: Probability of mutation per genome
         elitism: Number of best individuals to preserve unchanged
+        crossover_rate: Probability of generating offspring via crossover
+            instead of single-parent mutation. If 0.0, evolution uses only
+            mutation (current default behaviour).
 
     Returns:
         New population of evolved genomes
@@ -55,17 +59,46 @@ def evolve_population(
         while len(new_population) < len(population):
             offspring_count += 1
 
-            # Select parent (bias towards fitter individuals)
-            parent_idx = int(random.random() ** 2 * len(population))
-            parent = population[parent_idx]
+            use_crossover = (
+                crossover_rate > 0.0
+                and len(population) >= 2
+                and random.random() < crossover_rate
+            )
 
-            # Create mutated offspring
-            offspring = parent.mutate(mutation_rate)
+            if use_crossover:
+                # Select two parents (biased towards fitter individuals)
+                parent_idx1 = int(random.random() ** 2 * len(population))
+                parent_idx2 = int(random.random() ** 2 * len(population))
+                parent1 = population[parent_idx1]
+                parent2 = population[parent_idx2]
 
-            if offspring.fitness == 0.0:
-                offspring.fitness = fitness_func(offspring)
+                child1, child2 = parent1.crossover(parent2)
 
-            new_population.append(offspring)
+                # Optionally mutate children as well, controlled by mutation_rate.
+                child1 = child1.mutate(mutation_rate)
+                child2 = child2.mutate(mutation_rate)
+
+                if child1.fitness == 0.0:
+                    child1.fitness = fitness_func(child1)
+                new_population.append(child1)
+
+                if len(new_population) < len(population):
+                    if child2.fitness == 0.0:
+                        child2.fitness = fitness_func(child2)
+                    new_population.append(child2)
+
+            else:
+                # Select parent (bias towards fitter individuals)
+                parent_idx = int(random.random() ** 2 * len(population))
+                parent = population[parent_idx]
+
+                # Create mutated offspring
+                offspring = parent.mutate(mutation_rate)
+
+                if offspring.fitness == 0.0:
+                    offspring.fitness = fitness_func(offspring)
+
+                new_population.append(offspring)
 
         offspring_time = time.time() - offspring_start
         print(
