@@ -635,20 +635,10 @@ operations such as computing depth and size, iterating over nodes, and
 reconstructing the corresponding Tidal expression.
 Because trees are generated and transformed in accordance with the grammar,
 genetic operators cannot produce malformed code.
-Figure~\ref{fig:pattern-tree} shows a small example tree for the pattern
+Figure~\ref{fig:pattern-tree} (see Appendix) shows a small example tree for the pattern
 \texttt{fast 2 (stack[s("bd"), s("sn")])}, highlighting how timing transforms,
 list combinators and sound atoms are combined hierarchically.
 
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=\columnwidth]{../data/figures/pattern_tree.pdf}
-  \caption{Example pattern tree for the TidalCycles expression
-  \texttt{fast 2 (stack[s("bd"), s("sn")])}, illustrating the hierarchical
-  combination of a timing transform (\texttt{fast}), a list combinator
-  (\texttt{stack}) and two sound-producing atoms (\texttt{sound} ``bd'',
-  \texttt{sound} ``sn'').}
-  \label{fig:pattern-tree}
-\end{figure}
 
 \subsubsection{Mutation and Crossover}
 Variation is implemented through a suite of mutation operators and a
@@ -863,11 +853,11 @@ seconds, so a full 100-generation run with population 16 completes in a few
 hours.
 
 \subsection{Results}
-To analyse how the genetic programming loop behaves over time, we ran a
-representative long-run experiment and logged the per-generation fitness.
-The configuration uses a population of 16 individuals, 100 generations, a
-high mutation rate of 0.95, and elitist preservation of the top 2
-individuals under the \texttt{get\_fitness} objective.
+To analyse how the genetic programming loop behaves over time, we ran
+two representative long-run experiments and logged the per-generation
+fitness.
+The first run uses a population of 16 individuals and 100 generations
+under the configuration described above.
 
 \begin{figure}[!t]
   \centering
@@ -886,6 +876,28 @@ while the mean fitness oscillates around 0.55.
 The spread between minimum and maximum fitness indicates that the
 population maintains diversity rather than converging prematurely.
 
+We then performed a second experiment with a different target audio clip
+and retuned fitness weights that put more emphasis on the FFT feature.
+This run uses a population of 32 individuals and 130 generations and also
+logs the standard deviation of fitness.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\columnwidth]{../data/figures/fitness_log_2.pdf}
+  \caption{Evolution of fitness for the second run (population 32,
+  130 generations, updated fitness weights and a different target clip).
+  The blue band shows the range between minimum and maximum fitness; the
+  green band shows mean $\pm$ standard deviation.}
+  \label{fig:fitness-evolution-2}
+\end{figure}
+
+Even in this configuration the population makes steady progress according
+to the aggregate fitness, but the best individuals do not sound close to
+the new target, indicating that our hand-crafted feature weights remain
+highly sensitive to timing, timbre and other details.
+In contrast, the hand-crafted pattern for this target is perceptually much
+closer and should ideally attain a substantially higher fitness than we
+currently observe.
 
 \subsection*{Waveform and Spectrum Analysis}
 To better understand how the evolved patterns approximate the target audio,
@@ -938,28 +950,48 @@ frequency-domain envelopes of target and candidate remain close, whereas
 rhythm- or melody-based scores are more sensitive to phase shifts and local
 pitch deviations.
 
+For the second run with the new target clip, the best individual recorded
+in the log appears in generation~116 with scalar fitness
+$\mathrm{fitness}=0.551$ and the expression
+%
+
+\begin{quote}
+  \scriptsize
+  \verb|d1 $ struct "t t t f t t t f t f f f t t f t" (|
+  \verb|       append (rev (euclid 7 24 (fast 3 (|
+  \verb|           s "hh" # n (scale "major" "0 2 5 6 7") #|
+  \verb| s "superpiano")))) (|
+  \verb|           s "hh")) # n "3 7"|
+  \end{quote}
+
+
+%
+which layers a dense Euclidean hi-hat pattern over a major-scale
+\texttt{superpiano} line with an additional structural hi-hat layer.
+Despite relatively high FFT similarity, this pattern still differs
+substantially from the new target in perceived rhythm and timbre, and the
+overall fitness remains well below what we would expect for a convincing
+match.
+
 These observations suggest that richer learned audio representations could
 further improve robustness.
 Machine-learning-based audio embeddings (e.g., from self-supervised
 encoders or contrastive audio-text models) are a promising direction, as
-they could provide a single, perceptually grounded similarity measure that
-integrates timbre, harmony, rhythm and melodic contour.
+they could provide a single, perceptually grounded similarity measure and
+reduce the need for delicate hand-tuning of individual feature weights.
 
 \section{Discussion}
 The experiments indicate that a grammar-based genetic programming approach
 can steer TidalCycles patterns toward a fixed audio target while preserving
-syntactic correctness and musical structure.
-The fitness evolution in Figure~\ref{fig:fitness-evolution} shows that, even
-with an aggressive mutation rate, elitism and the rich operator set allow
-the population to steadily improve toward perceptually similar solutions.
-
-At the same time, the approach is computationally expensive, since each
+syntactic correctness and musical structure, with fitness steadily improving
+under both experimental configurations.
+At the same time, the approach is computationally expensive because each
 evaluation requires rendering audio and extracting features, which limits
 population sizes and the number of runs.
 Handcrafted fitness weights bias the search toward specific musical aspects
-and may not match perceptual similarity for all targets; and while the
-grammar ensures syntactic validity, it does not enforce musical form, so
-some high-fitness patterns still sound less satisfying than the reference.
+and may not always match perceptual similarity; and while the grammar
+ensures syntactic validity, it does not enforce musical form, so some
+high-fitness patterns still sound less satisfying than the reference.
 
 \section{Future Work}
 Several directions could extend and improve this work.
@@ -999,16 +1031,14 @@ Several directions could extend and improve this work.
 We presented a target-driven genetic programming framework that evolves
 TidalCycles patterns so that their rendered audio approximates a given
 reference clip.
-By combining a typed grammar over the Tidal pattern language, a set of
-musically meaningful genetic operators and a multi-feature audio similarity
-fitness built on \texttt{librosa}, the system can discover valid pattern
-code that converges toward the target according to both quantitative
+By combining a typed Tidal grammar, musically meaningful genetic operators
+and a multi-feature audio similarity fitness, the system can discover valid
+patterns that converge toward the target according to both quantitative
 metrics and qualitative listening.
-Although the current implementation is limited by computational cost and
-hand-tuned fitness weights, the results support the feasibility of using
-grammar-guided evolution to bridge symbolic live-coding patterns and
-audio-domain similarity objectives, opening the door to more interactive and
-expressive evolutionary tools for live coding and computer music.
+Despite limitations due to computational cost and hand-tuned fitness
+weights, the results support the feasibility of grammar-guided evolution as
+a bridge between symbolic live-coding patterns and audio-domain similarity
+objectives.
 
 
 
@@ -1103,6 +1133,19 @@ expressive evolutionary tools for live coding and computer music.
 \clearpage
 \appendices
 \onecolumn
+\section*{Appendix: Pattern Tree}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\columnwidth]{../data/figures/pattern_tree.pdf}
+  \caption{Example pattern tree for the TidalCycles expression
+  \texttt{fast 2 (stack[s("bd"), s("sn")])}, illustrating the hierarchical
+  combination of a timing transform (\texttt{fast}), a list combinator
+  (\texttt{stack}) and two sound-producing atoms (\texttt{sound} ``bd'',
+  \texttt{sound} ``sn'').}
+  \label{fig:pattern-tree}
+\end{figure}
+
 \section*{Appendix: Waveform and Spectrum Plots}
 
 \begin{figure}[!t]
@@ -1115,9 +1158,25 @@ expressive evolutionary tools for live coding and computer music.
 
 \begin{figure}[!t]
   \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_handcrafted_2.pdf}%
+  \caption{Hand-crafted Tidal pattern for the second experiment: waveform and spectrum
+           compared to the new target clip.}
+  \label{fig:waveform_handcrafted_2}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
   \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_000.pdf}%
   \caption{Early best candidate (generation~0, $\mathrm{fitness}=0.6234$).}
   \label{fig:waveform_gen000}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_000_2.pdf}%
+  \caption{Early best candidate for the new target (generation~0,
+           $\mathrm{fitness}=0.3421$).}
+  \label{fig:waveform_gen000_2}
 \end{figure}
 
 \begin{figure}[!t]
@@ -1129,9 +1188,25 @@ expressive evolutionary tools for live coding and computer music.
 
 \begin{figure}[!t]
   \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_016_2.pdf}%
+  \caption{Representative candidate for the new target (generation~16,
+           $\mathrm{fitness}=0.4082$).}
+  \label{fig:waveform_gen016_2}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
   \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_035.pdf}%
   \caption{Mid-run candidate (generation~35, $\mathrm{fitness}=0.6435$).}
   \label{fig:waveform_gen035}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_069_2.pdf}%
+  \caption{Mid-run candidate for the new target (generation~69,
+           $\mathrm{fitness}=0.5128$).}
+  \label{fig:waveform_gen069_2}
 \end{figure}
 
 \begin{figure}[!t]
@@ -1146,6 +1221,14 @@ expressive evolutionary tools for live coding and computer music.
   \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_088.pdf}%
   \caption{Best evolved candidate (generation~88, $\mathrm{fitness}=0.6754$).}
   \label{fig:waveform_best088}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_116_2.pdf}%
+  \caption{Best evolved candidate for the new target (generation~116,
+           $\mathrm{fitness}=0.551$).}
+  \label{fig:waveform_best116_2}
 \end{figure}
 
 
