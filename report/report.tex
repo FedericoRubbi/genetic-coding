@@ -864,11 +864,10 @@ hours.
 
 \subsection{Results}
 To analyse how the genetic programming loop behaves over time, we ran a
-representative long-run experiment and logged the fitness of each generation.
-The configuration for this run uses a population of
-16 individuals, 100 generations, a high mutation rate of 0.95, and elitist
-preservation of the top 2 individuals per generation under the
-\texttt{get\_fitness} objective.
+representative long-run experiment and logged the per-generation fitness.
+The configuration uses a population of 16 individuals, 100 generations, a
+high mutation rate of 0.95, and elitist preservation of the top 2
+individuals under the \texttt{get\_fitness} objective.
 
 \begin{figure}[!t]
   \centering
@@ -881,37 +880,86 @@ preservation of the top 2 individuals per generation under the
 \end{figure}
 
 Figure~\ref{fig:fitness-evolution} summarizes the behaviour of this run.
-Despite the aggressive mutation rate, the maximum fitness curve shows a
-monotonic improvement from an initially mediocre pattern toward a solution
-with fitness close to 0.7, while the mean fitness oscillates in a narrower
-band around 0.55.
-The large spread between minimum and maximum fitness indicates that the
-population maintains diversity throughout the run, which helps avoid
-premature convergence while still allowing the elites to steadily push the
-frontier of best solutions.
+Despite the aggressive mutation rate, the maximum fitness improves from an
+initially mediocre pattern toward a solution with fitness close to 0.7,
+while the mean fitness oscillates around 0.55.
+The spread between minimum and maximum fitness indicates that the
+population maintains diversity rather than converging prematurely.
+
+
+\subsection*{Waveform and Spectrum Analysis}
+To better understand how the evolved patterns approximate the target audio,
+we analysed the rendered waveforms and one-sided magnitude spectra (FFT) of
+a hand-crafted Tidal pattern and a set of representative candidates.
+The hand-crafted melody was written directly in Tidal to reproduce both the
+pitch contour and the rhythm of the target clip, using the following
+expression:
+%
+\begin{quote}
+\small
+\verb|d1 $ slow 2.3 $ note (timeCat [|
+\verb|    (1/3, "[15 15 15]"),|
+\verb|    (1, "[7,10,15] [6,11] [5,8,13]"),|
+\verb|    (1, "[[3, 7, 15]@3 [5, 13]@2|
+\verb|        [6, 8, 15]@8 ~]")]) #|
+\verb|    sound "superhammond"|
+\end{quote}
+%
+Qualitatively, this pattern produces a waveform and spectrum that are very
+close to the target; our feature-based fitness confirms this, with the FFT
+term acting as the most reliable and robust contributor.
+
+We then inspected the best evolved individuals recorded in the long run
+log.
+The overall best candidate, from generation~88, obtains a scalar fitness
+of $\mathrm{fitness}=0.6753$ and has the expression
+%
+\begin{quote}
+\small
+\verb|d1 $ stack [ stack [ fast 1.5 (rev(|
+\verb|        euclid 15 16 (s "sn" # n (|
+\verb|            scale "major" "1 3 4 6 7") #|
+\verb|            s "bd")) # note "7 9")|
+\verb|    , s "superpiano"|
+\verb|    , s "bd", s "hh", s "sn"|
+\verb|    , stack [ s "hh", s "hh" ],|
+\verb|    stack [ s "bd", s "hh" ] ]|
+\end{quote}
+%
+which superposes a dense, Euclidean snare-and-kick line with a sustained
+``superpiano'' layer and additional percussive accents.
+Earlier best candidates (e.g., from generations~0, 13, 35, 36, 47 and~51,
+with fitness values increasing from roughly $0.62$ to $0.66$) show spectra
+that may be considered vaguely similar to the target.
+Across all of these examples, the per-feature fitness components confirm
+that FFT-based spectral similarity is the most stable contributor: even
+when there are small timing or rhythmic misalignments, the
+frequency-domain envelopes of target and candidate remain close, whereas
+rhythm- or melody-based scores are more sensitive to phase shifts and local
+pitch deviations.
+
+These observations suggest that richer learned audio representations could
+further improve robustness.
+Machine-learning-based audio embeddings (e.g., from self-supervised
+encoders or contrastive audio-text models) are a promising direction, as
+they could provide a single, perceptually grounded similarity measure that
+integrates timbre, harmony, rhythm and melodic contour.
 
 \section{Discussion}
 The experiments indicate that a grammar-based genetic programming approach
-can reliably steer TidalCycles patterns toward a fixed audio target while
-preserving syntactic correctness and musical structure.
+can steer TidalCycles patterns toward a fixed audio target while preserving
+syntactic correctness and musical structure.
 The fitness evolution in Figure~\ref{fig:fitness-evolution} shows that, even
 with an aggressive mutation rate, elitism and the rich operator set allow
-the population to steadily improve, reaching solutions with perceptually
-high similarity to the target according to our multi-feature objective.
-The diversity visible in the fitness range suggests that the search does not
-collapse prematurely, which is important in a space as large and structured
-as the Tidal grammar.
+the population to steadily improve toward perceptually similar solutions.
 
-At the same time, the results highlight several limitations.
-The approach is computationally expensive, since each evaluation requires
-rendering audio and extracting features; this constrains population size and
-the number of runs we can explore.
-Moreover, the handcrafted fitness weights inevitably bias the search toward
-certain musical aspects (e.g.\ timbre and harmony) and might not capture
-perceptual similarity perfectly for all targets.
-Finally, while the grammar ensures syntactic validity, it does not enforce
-high-level musical form, so some evolved patterns, although close in
-features, may still sound less musically satisfying than the reference.
+At the same time, the approach is computationally expensive, since each
+evaluation requires rendering audio and extracting features, which limits
+population sizes and the number of runs.
+Handcrafted fitness weights bias the search toward specific musical aspects
+and may not match perceptual similarity for all targets; and while the
+grammar ensures syntactic validity, it does not enforce musical form, so
+some high-fitness patterns still sound less satisfying than the reference.
 
 \section{Future Work}
 Several directions could extend and improve this work.
@@ -946,6 +994,7 @@ Several directions could extend and improve this work.
           related patterns and restart evolution from interesting individuals.
 \end{itemize}
 
+
 \section{Conclusion}
 We presented a target-driven genetic programming framework that evolves
 TidalCycles patterns so that their rendered audio approximates a given
@@ -963,108 +1012,141 @@ expressive evolutionary tools for live coding and computer music.
 
 
 
-
-
-% if have a single appendix:
-%\appendix[Proof of the Zonklar Equations]
-% or
-%\appendix  % for no appendix heading
-% do not use \section anymore after \appendix, only \section*
-% is possibly needed
-
-% use appendices with more than one appendix
-% then use \section to start each appendix
-% you must declare a \section before using any
-% \subsection or using \label (\appendices by itself
-% starts a section numbered zero.)
-%
-
-
 % references section
 
 \begin{thebibliography}{17}
 
-\bibitem{Horner1991_GA_Music}
-A.~Horner and D.~E. Goldberg, ``Genetic algorithms and computer-assisted music
-  composition,'' in \emph{Proc. 4th Int. Conf. on Genetic Algorithms}, 1991,
-  pp.~437--441.
+  \bibitem{Horner1991_GA_Music}
+  A.~Horner and D.~E. Goldberg, ``Genetic algorithms and computer-assisted music
+    composition,'' in \emph{Proc. 4th Int. Conf. on Genetic Algorithms}, 1991,
+    pp.~437--441.
+  
+  \bibitem{Biles1994_GenJam}
+  J.~A. Biles, ``GenJam: A genetic algorithm for generating jazz solos,'' in
+    \emph{Proc. Int. Computer Music Conf.}, 1994, pp.~131--137.
+  
+  \bibitem{Papadopoulos1999_AISurvey}
+  G.~Papadopoulos and G.~Wiggins, ``{AI} methods for algorithmic composition: A
+    survey, a critical view and future prospects,'' in \emph{Proc. {AISB}
+    Symp. on Musical Creativity}, 1999.
+  
+  \bibitem{McCormack1996_GrammarMusic}
+  J.~McCormack, ``Grammar-based music composition,'' \emph{Complex Systems},
+    vol.~9, pp.~321--336, 1996.
+  
+  \bibitem{Puente2002_GrammaticalMusic}
+  O.~A. de~la~Puente, R.~S. Alfonso, and M.~A. Moreno, ``Automatic composition
+    of music by means of grammatical evolution,'' \emph{ACM SIGAPL APL Quote
+    Quad}, vol.~32, no.~2, pp.~148--155, 2002.
+  
+  \bibitem{Reddin2009_ElevatedPitch}
+  J.~Reddin, J.~McDermott, and M.~O'Neill, ``Elevated pitch: Automated
+    grammatical evolution of short compositions,'' in \emph{Proc.
+    EvoApplications (EvoMusArt)}, 2009, pp.~579--584.
+  
+  \bibitem{Loughran2015_TonalityGE}
+  R.~Loughran, J.~McDermott, and M.~O'Neill, ``Tonality driven piano compositions
+    with grammatical evolution,'' in \emph{Proc. IEEE Congr. Evol. Comput.
+    (CEC)}, 2015, pp.~2168--2175.
+  
+  \bibitem{Manaris2007_ZipfMusic}
+  B.~Manaris, D.~Vaughan, C.~Wagner, J.~Romero, and R.~B. Davis, ``Evolutionary
+    music and the Zipf{-}Mandelbrot law: Developing fitness functions for
+    pleasant music,'' in \emph{Applications of Evolutionary Computing
+    (EvoWorkshops/EvoMusArt)}, 2007, pp.~522--532.
+  
+  \bibitem{Ozcan2008_ImprovisedMusicGA}
+  E.~\"{O}zcan and T.~Ercal, ``A genetic algorithm for generating improvised
+    music,'' in \emph{Artificial Evolution, 7th Int. Conf. (EA~2007)}, 2008,
+    pp.~266--277.
+  
+  \bibitem{Herremans2016_Morpheus}
+  D.~Herremans and E.~Chew, ``MorpheuS: Automatic music generation with recurrent
+    pattern constraints and tension profiles,'' in \emph{Proc. IEEE TENCON},
+    2016, pp.~277--281.
+  
+  \bibitem{Horner1993_FMGA}
+  A.~Horner, J.~Beauchamp, and L.~Haken, ``Machine tongues XVI: Genetic
+    algorithms and their application to {FM} matching synthesis,'' \emph{Computer
+    Music Journal}, vol.~17, no.~4, pp.~17--29, 1993.
+  
+  \bibitem{McArthur2021_AutoencoderGA}
+  R.~N. McArthur and C.~P. Martin, ``An application for evolutionary music
+    composition using autoencoders,'' in \emph{Artificial Intelligence in Music,
+    Sound, Art and Design (EvoMUSART~2021)}, 2021, pp.~142--157.
+  
+  \bibitem{McLean2010_Tidal}
+  A.~McLean and G.~Wiggins, ``Tidal -- pattern language for the live coding of
+    music,'' in \emph{Proc. 7th Sound and Music Computing Conf. (SMC)}, 2010,
+    pp.~175--182.
+  
+  \bibitem{Hickinbotham2016_LiveCodingEA}
+  S.~Hickinbotham and S.~Stepney, ``Augmenting live coding with evolved
+    patterns,'' in \emph{Evolutionary and Biologically Inspired Music, Sound, Art
+    and Design (EvoMUSART~2016)}, 2016, pp.~31--46.
+  
+  \bibitem{Dasari2020_LiveCodingGA}
+  S.~Dasari and J.~Freeman, ``Directed evolution in live coding music
+    performance,'' in \emph{Proc. Int. Conf. on Live Coding (ICLC)}, 2020.
+  
+  \bibitem{McFee2015_librosa}
+  B.~McFee, C.~Raffel, D.~Liang, D.~P.~W. Ellis, M.~McVicar, E.~Battenberg, and
+    O.~Nieto, ``librosa: Audio and music signal analysis in python,'' in
+    \emph{Proc. 14th Python in Science Conf.}, 2015, pp.~18--25.
+  
+  \bibitem{Shinan2020_Lark}
+  E.~Shinan, ``Lark: Modern parsing for {P}ython,'' GitHub repository,
+    \texttt{https://github.com/lark-parser/lark}, accessed~2025.
+  
+  \end{thebibliography}
 
-\bibitem{Biles1994_GenJam}
-J.~A. Biles, ``GenJam: A genetic algorithm for generating jazz solos,'' in
-  \emph{Proc. Int. Computer Music Conf.}, 1994, pp.~131--137.
+\clearpage
+\appendices
+\onecolumn
+\section*{Appendix: Waveform and Spectrum Plots}
 
-\bibitem{Papadopoulos1999_AISurvey}
-G.~Papadopoulos and G.~Wiggins, ``{AI} methods for algorithmic composition: A
-  survey, a critical view and future prospects,'' in \emph{Proc. {AISB}
-  Symp. on Musical Creativity}, 1999.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_handcrafted.pdf}%
+  \caption{Hand-crafted Tidal pattern: waveform and spectrum compared to the target.
+           The pattern was written to closely match the target melody and rhythm.}
+  \label{fig:waveform_handcrafted}
+\end{figure}
 
-\bibitem{McCormack1996_GrammarMusic}
-J.~McCormack, ``Grammar-based music composition,'' \emph{Complex Systems},
-  vol.~9, pp.~321--336, 1996.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_000.pdf}%
+  \caption{Early best candidate (generation~0, $\mathrm{fitness}=0.6234$).}
+  \label{fig:waveform_gen000}
+\end{figure}
 
-\bibitem{Puente2002_GrammaticalMusic}
-O.~A. de~la~Puente, R.~S. Alfonso, and M.~A. Moreno, ``Automatic composition
-  of music by means of grammatical evolution,'' \emph{ACM SIGAPL APL Quote
-  Quad}, vol.~32, no.~2, pp.~148--155, 2002.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_013.pdf}%
+  \caption{Intermediate candidate (generation~13, $\mathrm{fitness}=0.6341$).}
+  \label{fig:waveform_gen013}
+\end{figure}
 
-\bibitem{Reddin2009_ElevatedPitch}
-J.~Reddin, J.~McDermott, and M.~O'Neill, ``Elevated pitch: Automated
-  grammatical evolution of short compositions,'' in \emph{Proc.
-  EvoApplications (EvoMusArt)}, 2009, pp.~579--584.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_035.pdf}%
+  \caption{Mid-run candidate (generation~35, $\mathrm{fitness}=0.6435$).}
+  \label{fig:waveform_gen035}
+\end{figure}
 
-\bibitem{Loughran2015_TonalityGE}
-R.~Loughran, J.~McDermott, and M.~O'Neill, ``Tonality driven piano compositions
-  with grammatical evolution,'' in \emph{Proc. IEEE Congr. Evol. Comput.
-  (CEC)}, 2015, pp.~2168--2175.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_051.pdf}%
+  \caption{Later candidate (generation~51, $\mathrm{fitness}=0.6623$).}
+  \label{fig:waveform_gen051}
+\end{figure}
 
-\bibitem{Manaris2007_ZipfMusic}
-B.~Manaris, D.~Vaughan, C.~Wagner, J.~Romero, and R.~B. Davis, ``Evolutionary
-  music and the Zipf{-}Mandelbrot law: Developing fitness functions for
-  pleasant music,'' in \emph{Applications of Evolutionary Computing
-  (EvoWorkshops/EvoMusArt)}, 2007, pp.~522--532.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{../data/figures/waveforms/waveform_gen_088.pdf}%
+  \caption{Best evolved candidate (generation~88, $\mathrm{fitness}=0.6754$).}
+  \label{fig:waveform_best088}
+\end{figure}
 
-\bibitem{Ozcan2008_ImprovisedMusicGA}
-E.~\"{O}zcan and T.~Ercal, ``A genetic algorithm for generating improvised
-  music,'' in \emph{Artificial Evolution, 7th Int. Conf. (EA~2007)}, 2008,
-  pp.~266--277.
 
-\bibitem{Herremans2016_Morpheus}
-D.~Herremans and E.~Chew, ``MorpheuS: Automatic music generation with recurrent
-  pattern constraints and tension profiles,'' in \emph{Proc. IEEE TENCON},
-  2016, pp.~277--281.
-
-\bibitem{Horner1993_FMGA}
-A.~Horner, J.~Beauchamp, and L.~Haken, ``Machine tongues XVI: Genetic
-  algorithms and their application to {FM} matching synthesis,'' \emph{Computer
-  Music Journal}, vol.~17, no.~4, pp.~17--29, 1993.
-
-\bibitem{McArthur2021_AutoencoderGA}
-R.~N. McArthur and C.~P. Martin, ``An application for evolutionary music
-  composition using autoencoders,'' in \emph{Artificial Intelligence in Music,
-  Sound, Art and Design (EvoMUSART~2021)}, 2021, pp.~142--157.
-
-\bibitem{McLean2010_Tidal}
-A.~McLean and G.~Wiggins, ``Tidal -- pattern language for the live coding of
-  music,'' in \emph{Proc. 7th Sound and Music Computing Conf. (SMC)}, 2010,
-  pp.~175--182.
-
-\bibitem{Hickinbotham2016_LiveCodingEA}
-S.~Hickinbotham and S.~Stepney, ``Augmenting live coding with evolved
-  patterns,'' in \emph{Evolutionary and Biologically Inspired Music, Sound, Art
-  and Design (EvoMUSART~2016)}, 2016, pp.~31--46.
-
-\bibitem{Dasari2020_LiveCodingGA}
-S.~Dasari and J.~Freeman, ``Directed evolution in live coding music
-  performance,'' in \emph{Proc. Int. Conf. on Live Coding (ICLC)}, 2020.
-
-\bibitem{McFee2015_librosa}
-B.~McFee, C.~Raffel, D.~Liang, D.~P.~W. Ellis, M.~McVicar, E.~Battenberg, and
-  O.~Nieto, ``librosa: Audio and music signal analysis in python,'' in
-  \emph{Proc. 14th Python in Science Conf.}, 2015, pp.~18--25.
-
-\bibitem{Shinan2020_Lark}
-E.~Shinan, ``Lark: Modern parsing for {P}ython,'' GitHub repository,
-  \texttt{https://github.com/lark-parser/lark}, accessed~2025.
-
-\end{thebibliography}
 \end{document}
